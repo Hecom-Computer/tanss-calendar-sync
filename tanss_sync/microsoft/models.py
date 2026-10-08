@@ -56,7 +56,20 @@ class GraphEvent(BaseModel):
         umzugehen ist, entscheidet :meth:`GraphRepository.uid_for`.
         """
         return value if isinstance(value, str) else ""
+
     subject: str = ""
+
+    @field_validator("subject", mode="before")
+    @classmethod
+    def _null_subject_is_empty(cls, value: object) -> str:
+        """Graph darf bei Terminen ohne Betreff ``null`` statt ``""`` liefern.
+
+        Der fehlende Betreff ist kein Grund, den gesamten Kalender eines Mitarbeiters
+        aus dem Abgleich zu nehmen. Die fachliche Behandlung leerer Betreffe erfolgt
+        später im Reconciler.
+        """
+        return value if isinstance(value, str) else ""
+
     categories: list[str] = Field(default_factory=list)
     body: dict = Field(default_factory=dict)
     body_preview: str = Field(alias="bodyPreview", default="")

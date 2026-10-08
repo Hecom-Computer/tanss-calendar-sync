@@ -98,3 +98,12 @@ def test_privater_termin_bleibt_privat() -> None:
     """Die Vertraulichkeit schlägt die Antwortlage."""
     ergebnis = mapped(event(attendees=[gast()], sensitivity="private"))
     assert ergebnis.kind is AppointmentKind.PRIVATE
+
+
+def test_leerer_graph_betreff_blockiert_den_abgleich_nicht() -> None:
+    raw = event().model_dump(by_alias=True)
+    raw["subject"] = None
+
+    ergebnis = mapped(GraphEvent.model_validate(raw))
+
+    assert ergebnis.subject == ""
