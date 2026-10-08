@@ -39,7 +39,7 @@ _TIME_TOLERANCE_SECONDS = 60
 # Felder, die in die Pruefsumme einer Seite eingehen. Alles, was hier steht, loest
 # bei Aenderung einen Abgleich aus.
 _FINGERPRINT_FIELDS = ("subject", "body", "location", "start", "end",
-                       "all_day", "show_as")
+                       "all_day", "show_as", "is_private")
 
 
 class Changed(StrEnum):
@@ -70,7 +70,13 @@ def fingerprint(appointment: Appointment) -> str:
     """
     payload = {}
     for name in _FINGERPRINT_FIELDS:
-        value = getattr(appointment, name)
+        # Outlook kennt die Vertraulichkeit als ``sensitivity``, TANSS dagegen
+        # als eigenen Planungstyp. Im Zwischenmodell ist sie deshalb aus der Art
+        # des Termins abgeleitet. Sie muss trotzdem in die Prüfsumme: Sonst würde
+        # ein Wechsel zwischen normal und privat bei einem bestehenden Paar nie
+        # als Änderung erkannt.
+        value = (appointment.kind.value == "private" if name == "is_private"
+                 else getattr(appointment, name))
         if hasattr(value, "isoformat"):
             # Auf die Minute genau - Sekundenbruchteile sind kein Inhalt.
             payload[name] = value.replace(second=0, microsecond=0).isoformat()
@@ -143,6 +149,8 @@ def fields_to_write(source: Appointment, target: Appointment) -> set[str]:
         changed.add("all_day")
     if source.show_as != target.show_as:
         changed.add("show_as")
+    if (source.kind.value == "private") != (target.kind.value == "private"):
+        changed.add("sensitivity")
 
     return changed
 

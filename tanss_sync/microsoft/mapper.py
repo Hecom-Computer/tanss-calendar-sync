@@ -17,6 +17,7 @@ _UPDATABLE = {
     "start": "start",
     "end": "end",
     "show_as": "showAs",
+    "sensitivity": "sensitivity",
 }
 
 
@@ -139,6 +140,10 @@ class GraphMapper:
         for field in changed:
             target = _UPDATABLE.get(field)
             if target is None:
+                continue
+            if field == "sensitivity":
+                payload[target] = ("private" if appointment.kind is AppointmentKind.PRIVATE
+                                   else "normal")
                 continue
             if field == "body":
                 # Teams-Block und TANSS-Hash aus dem bestehenden Text retten.
