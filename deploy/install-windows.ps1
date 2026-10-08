@@ -56,6 +56,17 @@ foreach ($dir in $appDir, $configDir, $stateDir, $logDir) {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
 }
 
+# Der Installationsstamm kann aus einer Altinstallation bereits restriktive
+# vererbte Rechte besitzen. Die Rechte muessen vor robocopy gesetzt werden,
+# sonst kann der aufrufende Administrator im gerade angelegten Ziel nicht
+# schreiben.
+foreach ($dir in $appDir, $configDir, $stateDir, $logDir) {
+    & icacls $dir /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /T | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Setzen der Zugriffsrechte fehlgeschlagen fuer $dir (icacls: $LASTEXITCODE)."
+    }
+}
+
 # Die Laufzeitumgebung liegt ausserhalb von $appDir. /MIR kann daher den
 # Quellordner bereinigen, ohne Dateien der laufenden Python-Umgebung anzufassen.
 Write-Host 'Kopiere Anwendung ...'
@@ -79,10 +90,9 @@ if (-not (Test-Path -LiteralPath $configPath)) {
     Write-Warning "Vorlage erstellt: $configPath. Erst 'tanss-sync setup --config `"$configPath`"' ausfuehren."
 }
 
-# Nur SYSTEM und lokale Administratoren duerfen Konfiguration, Token, Datenbank und
-# Logs lesen. Der alte App-Ordner wird bewusst nicht mehr angefasst, damit eine
-# defekte Altinstallation das Update nicht blockiert.
-foreach ($dir in $appDir, $configDir, $stateDir, $logDir, $venvDir) {
+# Die virtuelle Umgebung wird erst nach dem Kopieren angelegt und bekommt die
+# gleichen restriktiven Rechte. Der alte App-Ordner bleibt unangetastet.
+foreach ($dir in $venvDir) {
     & icacls $dir /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /T | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Setzen der Zugriffsrechte fehlgeschlagen fuer $dir (icacls: $LASTEXITCODE)."
