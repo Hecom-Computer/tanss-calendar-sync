@@ -120,6 +120,12 @@ class SecretRef:
         """Abweichungen von den erwarteten Dateirechten — für ``doctor``."""
         if self.scheme != "file":
             return []
+        # Windows meldet die POSIX-Modusbits unabhängig von der tatsächlichen
+        # NTFS-ACL oft als 0666. Die ACL des Dienstkontos wird vom
+        # Windows-Installer gesetzt; ein Test dieser Bits wäre daher ein
+        # irreführender Sicherheitswarnhinweis.
+        if os.name == "nt":
+            return []
         path = Path(self.target).expanduser()
         if not path.exists():
             return [f"{path}: fehlt"]
