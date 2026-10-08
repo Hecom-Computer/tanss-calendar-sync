@@ -229,6 +229,20 @@ Zertifikat nicht in Skripten oder der Git-Historie landen:
   --config 'C:\ProgramData\TANSS Calendar Sync\config\config.json'
 ```
 
+Fuer ein Zertifikat auf Windows erzeugt das mitgelieferte Hilfsskript den privaten
+Schluessel direkt im geschuetzten Konfigurationsverzeichnis. Es gibt nur den
+Fingerabdruck und die **oeffentliche** Datei zum Hochladen aus:
+
+```powershell
+& 'C:\ProgramData\TANSS Calendar Sync\app\.venv\Scripts\python.exe' `
+  'C:\ProgramData\TANSS Calendar Sync\app\deploy\new-windows-certificate.py' `
+  --directory 'C:\ProgramData\TANSS Calendar Sync\config'
+```
+
+Unter *Zertifikate & Geheimnisse* in der App-Registrierung wird anschliessend
+`C:\ProgramData\TANSS Calendar Sync\config\graph-public.cer` hochgeladen. Der
+private Schluessel `graph.pem` wird nicht kopiert und nicht hochgeladen.
+
 Zuerst mit `sync.dry_run: true` testen. Nach der Prüfung auf `false` setzen und die Aufgabe
 starten:
 
