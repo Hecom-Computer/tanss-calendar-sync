@@ -44,13 +44,18 @@ $appDir = Join-Path $InstallRoot 'app'
 $configDir = Join-Path $InstallRoot 'config'
 $stateDir = Join-Path $InstallRoot 'state'
 $logDir = Join-Path $InstallRoot 'log'
-$venvDir = Join-Path $appDir '.venv'
+# Die virtuelle Umgebung liegt bewusst ausserhalb des gespiegelten Quellordners.
+# Sonst versucht robocopy beim erneuten Installieren Dateien der laufenden bzw.
+# bereits geschuetzten Umgebung zu beruehren.
+$venvDir = Join-Path $InstallRoot 'venv'
 
 foreach ($dir in $appDir, $configDir, $stateDir, $logDir) {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
 }
 
-robocopy $repoRoot $appDir /MIR /XD .git .venv __pycache__ /XF *.pem config.json | Out-Null
+# Kein /MIR: Die Laufzeitumgebung und ihre Dateien duerfen bei einem Update nie
+# geloescht oder durch das Kopieren der Quellen beruehrt werden.
+robocopy $repoRoot $appDir /E /XD .git .venv __pycache__ /XF *.pem config.json | Out-Null
 if ($LASTEXITCODE -gt 7) { throw "Kopieren der Anwendung fehlgeschlagen (robocopy: $LASTEXITCODE)." }
 
 if ($isLauncher) {
