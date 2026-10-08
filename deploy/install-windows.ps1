@@ -52,6 +52,39 @@ $logDir = Join-Path $InstallRoot 'log'
 # bereits geschuetzten Umgebung zu beruehren.
 $venvDir = Join-Path $InstallRoot 'venv'
 
+function Set-TanssAcl {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    # ``icacls`` kann bei einem zuvor geschuetzten Ordner zwar Erfolg melden,
+    # ohne eine wirksame DACL zu hinterlassen. Das würde sowohl den aufrufenden
+    # Administrator als auch LOCAL SYSTEM beim naechsten Start aussperren.
+    $administrators = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
+    $system = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')
+    $rights = [System.Security.AccessControl.FileSystemRights]::FullControl
+    $allow = [System.Security.AccessControl.AccessControlType]::Allow
+    $inherit = [System.Security.AccessControl.InheritanceFlags]::ContainerInherit -bor `
+        [System.Security.AccessControl.InheritanceFlags]::ObjectInherit
+    $none = [System.Security.AccessControl.PropagationFlags]::None
+
+    $acl = Get-Acl -LiteralPath $Path
+    $acl.SetAccessRuleProtection($true, $false)
+    $acl.SetAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(
+        $administrators, $rights, $inherit, $none, $allow))
+    $acl.SetAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(
+        $system, $rights, $inherit, $none, $allow))
+    Set-Acl -LiteralPath $Path -AclObject $acl
+
+    Get-ChildItem -LiteralPath $Path -Force -Recurse | ForEach-Object {
+        $childAcl = Get-Acl -LiteralPath $_.FullName
+        $childAcl.SetAccessRuleProtection($true, $false)
+        $childAcl.SetAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(
+            $administrators, $rights, $allow))
+        $childAcl.SetAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new(
+            $system, $rights, $allow))
+        Set-Acl -LiteralPath $_.FullName -AclObject $childAcl
+    }
+}
+
 foreach ($dir in $appDir, $configDir, $stateDir, $logDir) {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
 }
@@ -61,10 +94,7 @@ foreach ($dir in $appDir, $configDir, $stateDir, $logDir) {
 # sonst kann der aufrufende Administrator im gerade angelegten Ziel nicht
 # schreiben.
 foreach ($dir in $appDir, $configDir, $stateDir, $logDir) {
-    & icacls $dir /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /T | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw "Setzen der Zugriffsrechte fehlgeschlagen fuer $dir (icacls: $LASTEXITCODE)."
-    }
+    Set-TanssAcl -Path $dir
 }
 
 # Die Laufzeitumgebung liegt ausserhalb von $appDir. /MIR kann daher den
@@ -93,10 +123,7 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 # Die virtuelle Umgebung wird erst nach dem Kopieren angelegt und bekommt die
 # gleichen restriktiven Rechte. Der alte App-Ordner bleibt unangetastet.
 foreach ($dir in $venvDir) {
-    & icacls $dir /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /T | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw "Setzen der Zugriffsrechte fehlgeschlagen fuer $dir (icacls: $LASTEXITCODE)."
-    }
+    Set-TanssAcl -Path $dir
 }
 
 $taskName = 'TANSS Calendar Sync'

@@ -52,7 +52,10 @@ class ConfigStore:
                 "Einrichtung starten mit: tanss-sync setup"
             )
         try:
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
+            # Windows PowerShell 5.1 schreibt mit ``-Encoding UTF8`` eine BOM.
+            # ``utf-8-sig`` akzeptiert sie und verhält sich bei einer normalen
+            # UTF-8-Datei identisch.
+            raw = json.loads(self.path.read_text(encoding="utf-8-sig"))
         except json.JSONDecodeError as exc:
             raise ConfigError(
                 f"{self.path} ist kein gültiges JSON: Zeile {exc.lineno}, Spalte {exc.colno} "

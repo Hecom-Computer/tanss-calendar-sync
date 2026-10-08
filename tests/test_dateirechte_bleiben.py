@@ -23,8 +23,8 @@ import os
 import stat
 
 from tanss_sync.config.models import AppConfig
-from tanss_sync.config.store import ConfigStore
 from tanss_sync.config.secrets import SecretRef
+from tanss_sync.config.store import ConfigStore
 
 KONFIG = {
     "version": 1,
@@ -57,6 +57,13 @@ def test_neue_konfiguration_entsteht_eng(tmp_path) -> None:
     ziel = tmp_path / "neu" / "config.json"
     ConfigStore(ziel).save(AppConfig.model_validate(KONFIG))
     assert _mode(ziel) == 0o600
+
+
+def test_konfiguration_mit_windows_bom_wird_gelesen(tmp_path) -> None:
+    ziel = tmp_path / "config.json"
+    ziel.write_text(json.dumps(KONFIG), encoding="utf-8-sig")
+
+    assert ConfigStore(ziel).load().version == 1
 
 
 def test_token_behaelt_seine_rechte(tmp_path) -> None:
