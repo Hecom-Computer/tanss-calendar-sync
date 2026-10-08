@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "tanss": {
+    "base_url": "https://tanss.example.com/backend",
+    "token_ref": "file:C:/ProgramData/TANSS Calendar Sync/state/token",
+    "token_owner_employee_id": 1
+  },
+  "microsoft": {
+    "tenant_id": "00000000-0000-0000-0000-000000000000",
+    "client_id": "00000000-0000-0000-0000-000000000000",
+    "auth": {
+      "mode": "certificate",
+      "certificate_path": "C:/ProgramData/TANSS Calendar Sync/config/graph.pem",
+      "thumbprint": "0000000000000000000000000000000000000000"
+    }
+  },
+  "state": {
+    "db_path": "C:/ProgramData/TANSS Calendar Sync/state/state.db",
+    "lock_path": "C:/ProgramData/TANSS Calendar Sync/state/lock"
+  },
+  "logging": {
+    "file": "C:/ProgramData/TANSS Calendar Sync/log/sync.log"
+  }
+}

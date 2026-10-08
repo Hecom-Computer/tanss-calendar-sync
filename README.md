@@ -23,6 +23,7 @@ Mitarbeiters — und umgekehrt. Änderungen und Löschungen werden in beide Rich
 - [Was synchronisiert wird](#was-synchronisiert-wird)
 - [Voraussetzungen](#voraussetzungen)
 - [Installation unter Ubuntu](#installation-unter-ubuntu)
+- [Installation unter Windows Server](#installation-unter-windows-server)
 - [Microsoft 365 vorbereiten](#microsoft-365-vorbereiten)
 - [TANSS vorbereiten](#tanss-vorbereiten)
 - [Einrichtung](#einrichtung)
@@ -194,6 +195,50 @@ sudo rm -rf /etc/tanss-calendar-sync /var/lib/tanss-calendar-sync
 
 Das Entfernen des Dienstes verändert **keine** Termine — weder in TANSS noch in
 Microsoft 365. Beide Kalender bleiben so, wie sie sind.
+
+---
+
+## Installation unter Windows Server
+
+Die Windows-Variante ist für den Betrieb auf einem TANSS-Windows-Server vorgesehen. Sie
+verwendet die Aufgabenplanung unter `LOCAL SYSTEM`: Start beim Systemboot, keine interaktive
+Anmeldung und bis zu drei automatische Neustarts nach einem Fehler. Im Standardmodus `poll`
+sind keine eingehenden Netzwerkfreigaben erforderlich.
+
+> **Hinweis:** Der Windows-Betrieb ist neu. Vor dem produktiven Einsatz zuerst einen einzelnen
+> Testbenutzer mit `sync.dry_run` einrichten und die angezeigten Änderungen prüfen.
+
+1. Python 3.11 oder neuer installieren und den Repository-Stand auf den Server kopieren.
+2. PowerShell als Administrator öffnen und im Repository ausführen:
+
+```powershell
+.\deploy\install-windows.ps1
+```
+
+Das Skript installiert die Anwendung unter `C:\ProgramData\TANSS Calendar Sync`, erstellt
+eine virtuelle Python-Umgebung und richtet die Aufgabe **TANSS Calendar Sync** ein. Die
+Vorlage `config.windows.example.json` wird einmalig nach
+`C:\ProgramData\TANSS Calendar Sync\config\config.json` kopiert; sie enthält keine
+Zugangsdaten. Die Verzeichnisse sind für `LOCAL SYSTEM` und lokale Administratoren geschützt.
+
+Die Ersteinrichtung wird anschließend bewusst getrennt ausgeführt, damit Token und
+Zertifikat nicht in Skripten oder der Git-Historie landen:
+
+```powershell
+& 'C:\ProgramData\TANSS Calendar Sync\app\.venv\Scripts\tanss-sync.exe' setup `
+  --config 'C:\ProgramData\TANSS Calendar Sync\config\config.json'
+```
+
+Zuerst mit `sync.dry_run: true` testen. Nach der Prüfung auf `false` setzen und die Aufgabe
+starten:
+
+```powershell
+schtasks /Run /TN "TANSS Calendar Sync"
+schtasks /Query /TN "TANSS Calendar Sync" /V /FO LIST
+```
+
+Der optionale Push-Modus benötigt weiterhin einen von TANSS erreichbaren Rückrufendpunkt;
+auf einem Server ohne eingehende Freigabe bleibt `sync.mode` auf `poll`.
 
 ---
 

@@ -76,8 +76,15 @@ def atomar_ersetzen(pfad: Path, schreiber: Callable[[object], None], *,
             handle.flush()
             os.fsync(handle.fileno())
             # Erst die Rechte, dann umbenennen — siehe Modulkopf.
-            os.fchmod(handle.fileno(), modus)
-            if vorher is not None and os.geteuid() == 0:
+            # fchmod/fchown/geteuid gibt es unter Windows nicht. Die ACL des
+            # Dienstkontos wird dort durch den Installer gesetzt; chmod ist nur
+            # ein best-effort-Schutz fuer die POSIX-artigen Modusbits.
+            if hasattr(os, "fchmod"):
+                os.fchmod(handle.fileno(), modus)
+            else:
+                os.chmod(tmp, modus)
+            if (vorher is not None and hasattr(os, "geteuid")
+                    and os.geteuid() == 0 and hasattr(os, "fchown")):
                 os.fchown(handle.fileno(), vorher.st_uid, vorher.st_gid)
         os.replace(tmp, pfad)
     except BaseException:
@@ -102,7 +109,8 @@ def verzeichnis_anlegen_wie(verzeichnis: Path, vorbild: Path, *, modus: int) -> 
         return
     verzeichnis.mkdir(parents=True, exist_ok=True)
     os.chmod(verzeichnis, modus)
-    if os.geteuid() != 0 or not _unterhalb_von_run(verzeichnis):
+    if (not hasattr(os, "geteuid") or os.geteuid() != 0
+            or not _unterhalb_von_run(verzeichnis)):
         return
     for kandidat in (vorbild, vorbild.parent):
         eigner = rechte_vorher(kandidat)
