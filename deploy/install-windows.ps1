@@ -55,7 +55,10 @@ foreach ($dir in $appDir, $configDir, $stateDir, $logDir) {
 
 # Kein /MIR: Die Laufzeitumgebung und ihre Dateien duerfen bei einem Update nie
 # geloescht oder durch das Kopieren der Quellen beruehrt werden.
-robocopy $repoRoot $appDir /E /XD .git .venv __pycache__ /XF *.pem config.json | Out-Null
+Write-Host 'Kopiere Anwendung ...'
+# Ohne /R und /W versucht robocopy bei einem einzelnen gesperrten Element bis zu
+# eine Million Mal erneut und wirkt dadurch wie eingefroren.
+robocopy $repoRoot $appDir /E /R:1 /W:1 /XD .git .venv __pycache__ /XF *.pem config.json | Out-Null
 if ($LASTEXITCODE -gt 7) { throw "Kopieren der Anwendung fehlgeschlagen (robocopy: $LASTEXITCODE)." }
 
 if ($isLauncher) {
