@@ -24,8 +24,17 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) { $python = Get-Command py -ErrorAction SilentlyContinue }
 if (-not $python) { throw 'Python 3.11 oder neuer ist nicht installiert.' }
+$pythonExe = $python.Path
+$isLauncher = $python.Name -match '^py(\.exe)?$'
 
-$versionText = if ($python.Name -eq 'py.exe') { & $python.Source -3 --version } else { & $python.Source --version }
+# Der Python Launcher erwartet die Versionswahl vor dem Modul. Eine explizite
+# Verzweigung statt leerem Array-Splatting verhindert, dass einzelne Windows-
+# Launcher die Optionen verlieren und interaktiv starten.
+if ($isLauncher) {
+    $versionText = & $pythonExe -3 --version
+} else {
+    $versionText = & $pythonExe --version
+}
 if ($versionText -notmatch 'Python 3\.(1[1-9]|[2-9][0-9])') {
     throw "Python 3.11 oder neuer wird benoetigt (gefunden: $versionText)."
 }
@@ -44,8 +53,11 @@ foreach ($dir in $appDir, $configDir, $stateDir, $logDir) {
 robocopy $repoRoot $appDir /MIR /XD .git .venv __pycache__ /XF *.pem config.json | Out-Null
 if ($LASTEXITCODE -gt 7) { throw "Kopieren der Anwendung fehlgeschlagen (robocopy: $LASTEXITCODE)." }
 
-$pythonArgs = if ($python.Name -eq 'py.exe') { @('-3') } else { @() }
-& $python.Source @pythonArgs -m venv $venvDir
+if ($isLauncher) {
+    & $pythonExe -3 -m venv $venvDir
+} else {
+    & $pythonExe -m venv $venvDir
+}
 $venvPython = Join-Path $venvDir 'Scripts\python.exe'
 & $venvPython -m pip install --upgrade pip
 & $venvPython -m pip install $appDir
