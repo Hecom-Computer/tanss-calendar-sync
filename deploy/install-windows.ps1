@@ -40,7 +40,10 @@ if ($versionText -notmatch 'Python 3\.(1[1-9]|[2-9][0-9])') {
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$appDir = Join-Path $InstallRoot 'app'
+# Der bisherige Ordner ``app`` kann aus einer alten Installation eine gesperrte
+# virtuelle Umgebung enthalten. Updates werden deshalb in einem separaten,
+# quellcode-only Ordner installiert; die alte Installation bleibt erhalten.
+$appDir = Join-Path $InstallRoot 'app-current'
 $configDir = Join-Path $InstallRoot 'config'
 $stateDir = Join-Path $InstallRoot 'state'
 $logDir = Join-Path $InstallRoot 'log'
@@ -53,12 +56,12 @@ foreach ($dir in $appDir, $configDir, $stateDir, $logDir) {
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
 }
 
-# Kein /MIR: Die Laufzeitumgebung und ihre Dateien duerfen bei einem Update nie
-# geloescht oder durch das Kopieren der Quellen beruehrt werden.
+# Die Laufzeitumgebung liegt ausserhalb von $appDir. /MIR kann daher den
+# Quellordner bereinigen, ohne Dateien der laufenden Python-Umgebung anzufassen.
 Write-Host 'Kopiere Anwendung ...'
 # Ohne /R und /W versucht robocopy bei einem einzelnen gesperrten Element bis zu
 # eine Million Mal erneut und wirkt dadurch wie eingefroren.
-robocopy $repoRoot $appDir /E /R:1 /W:1 /XD .git .venv __pycache__ /XF *.pem config.json | Out-Null
+robocopy $repoRoot $appDir /MIR /R:1 /W:1 /XD .git .venv __pycache__ /XF *.pem config.json | Out-Null
 if ($LASTEXITCODE -gt 7) { throw "Kopieren der Anwendung fehlgeschlagen (robocopy: $LASTEXITCODE)." }
 
 if ($isLauncher) {
@@ -77,11 +80,13 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 }
 
 # Nur SYSTEM und lokale Administratoren duerfen Konfiguration, Token, Datenbank und
-# Logs lesen. SIDs statt lokalisierter Gruppennamen funktionieren auf deutschen wie
-# englischen Windows-Servern. /T sichert auch bereits angelegte Unterverzeichnisse.
-& icacls $InstallRoot /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /T | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    throw "Setzen der Zugriffsrechte fehlgeschlagen (icacls: $LASTEXITCODE)."
+# Logs lesen. Der alte App-Ordner wird bewusst nicht mehr angefasst, damit eine
+# defekte Altinstallation das Update nicht blockiert.
+foreach ($dir in $appDir, $configDir, $stateDir, $logDir, $venvDir) {
+    & icacls $dir /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /T | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Setzen der Zugriffsrechte fehlgeschlagen fuer $dir (icacls: $LASTEXITCODE)."
+    }
 }
 
 $taskName = 'TANSS Calendar Sync'
