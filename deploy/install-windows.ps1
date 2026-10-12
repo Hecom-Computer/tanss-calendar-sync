@@ -112,7 +112,12 @@ if ($isLauncher) {
 }
 $venvPython = Join-Path $venvDir 'Scripts\python.exe'
 & $venvPython -m pip install --upgrade pip
-& $venvPython -m pip install $appDir
+# Ein lokaler Quellordner mit derselben Paketversion gilt für pip sonst oft als
+# bereits installiert. Bei einem Update würden Codeänderungen dann zwar nach
+# app-current kopiert, aber der Dienst lädt weiter die alte Kopie aus venv.
+# Abhängigkeiten bleiben bewusst unangetastet; nur unser eigenes Paket wird
+# zuverlässig durch den gerade kopierten Quellstand ersetzt.
+& $venvPython -m pip install --no-deps --force-reinstall $appDir
 
 $configPath = Join-Path $configDir 'config.json'
 if (-not (Test-Path -LiteralPath $configPath)) {
