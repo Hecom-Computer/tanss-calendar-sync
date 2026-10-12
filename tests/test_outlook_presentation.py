@@ -33,22 +33,29 @@ def mapper(**kwargs) -> GraphMapper:
 def test_ticket_link_wird_nur_mit_expliziter_vorlage_erzeugt() -> None:
     payload = mapper().to_create_payload(termin())
     text = payload["body"]["content"]
-    assert "TANSS-Ticket: #12345" in text
+    assert "TANSS-Informationen" in text
+    assert "TANSS-Ticket #12345" in text
+    assert "[TANSS-SYNC-INFO]" not in text
     assert "https://ticket.example/index.php?ticket=12345" in text
     assert payload["categories"] == ["TANSS - Vor Ort"]
 
 
 def test_navigation_steht_im_fahrtblock_und_vor_ort_termin() -> None:
     payload = mapper().to_create_payload(termin())
-    assert "Navigation: https://www.google.com/maps/search/?api=1&query=" in payload["body"]["content"]
+    assert "Route in Google Maps: https://www.google.com/maps/search/?api=1&query=" in payload["body"]["content"]
 
     payload = mapper().to_create_payload(termin(travel_role="travel_to"))
-    assert "Navigation: https://www.google.com/maps/search/?api=1&query=" in payload["body"]["content"]
+    assert "Route in Google Maps: https://www.google.com/maps/search/?api=1&query=" in payload["body"]["content"]
 
 
 def test_sync_block_wird_beim_lesen_nicht_zu_tanss_nutztext() -> None:
     body = mapper().to_create_payload(termin())["body"]["content"]
     assert without_sync_info(body) == "Besprechung beim Kunden"
+
+
+def test_lesbarer_infoblock_ersetzt_alte_marker() -> None:
+    body = "Besprechung\n\n[TANSS-SYNC-INFO]\nTANSS-Link: alt\n[/TANSS-SYNC-INFO]"
+    assert without_sync_info(body) == "Besprechung"
 
 
 def test_eigene_outlook_kategorien_bleiben_bei_update_erhalten() -> None:

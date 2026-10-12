@@ -11,21 +11,28 @@ from urllib.parse import urlencode
 
 from ..domain.appointment import Appointment, AppointmentKind, ServiceLocation
 
-_START = "[TANSS-SYNC-INFO]"
-_END = "[/TANSS-SYNC-INFO]"
+# Die alten Marker bleiben nur für die Migration bereits geschriebener Termine.
+# Neue Termine zeigen einen lesbaren Abschnitt ohne technische Klammer-Marker.
+_LEGACY_START = "[TANSS-SYNC-INFO]"
+_LEGACY_END = "[/TANSS-SYNC-INFO]"
+_VISIBLE_START = "TANSS-Informationen"
 
 
 def without_sync_info(text: str | None) -> str:
     """Entfernt ausschließlich den von uns erzeugten Informationsblock."""
     if not text:
         return ""
-    start = text.find(_START)
-    if start < 0:
-        return text.strip()
-    end = text.find(_END, start)
-    if end < 0:
-        return text[:start].rstrip()
-    return (text[:start] + text[end + len(_END):]).strip()
+    legacy_start = text.find(_LEGACY_START)
+    if legacy_start >= 0:
+        end = text.find(_LEGACY_END, legacy_start)
+        if end < 0:
+            return text[:legacy_start].rstrip()
+        return (text[:legacy_start] + text[end + len(_LEGACY_END):]).strip()
+
+    # Der neue, bewusst sichtbare Abschnitt wird immer am Ende angehängt.
+    # Damit gelangt er beim Rückweg Outlook -> TANSS nicht in den Nutztext.
+    visible_start = text.find(_VISIBLE_START)
+    return text[:visible_start].rstrip() if visible_start >= 0 else text.strip()
 
 
 def ticket_url(template: str | None, ticket_id: int | None) -> str | None:
@@ -53,9 +60,9 @@ def sync_info(appointment: Appointment, *, ticket_url_template: str | None,
     lines: list[str] = []
     link = ticket_url(ticket_url_template, appointment.ticket_id)
     if appointment.ticket_id:
-        lines.append(f"TANSS-Ticket: #{appointment.ticket_id}")
+        lines.append(f"TANSS-Ticket #{appointment.ticket_id}")
     if link:
-        lines.append(f"TANSS-Link: {link}")
+        lines.append(f"Ticket öffnen: {link}")
     # Eine Adresse hilft nicht nur bei getrennten An- und Abfahrtblöcken,
     # sondern ebenso beim eigentlichen Vor-Ort-Termin. Remote- und interne
     # Termine bekommen keinen Link, auch wenn dort versehentlich ein Ort steht.
@@ -66,10 +73,10 @@ def sync_info(appointment: Appointment, *, ticket_url_template: str | None,
     if travel_navigation_links and needs_navigation:
         navigation = navigation_url(appointment.location)
         if navigation:
-            lines.append(f"Navigation: {navigation}")
+            lines.append(f"Route in Google Maps: {navigation}")
     if not lines:
         return ""
-    return "\n".join([_START, *lines, _END])
+    return "\n".join([_VISIBLE_START, *lines])
 
 
 def decorate_body(body: str, appointment: Appointment, *, ticket_url_template: str | None,
