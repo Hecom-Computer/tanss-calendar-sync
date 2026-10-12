@@ -162,6 +162,12 @@ class GraphMapper:
         Aktualisierungsmails an alle Teilnehmer aus. Teilnehmer pflegt dieses Werkzeug
         nicht — sie kommen aus Outlook und bleiben dort.
         """
+        changed = set(changed)
+        # Der Kartenlink im Infoblock hängt vom Outlook-Ort ab. Eine aus TANSS
+        # ergänzte Firmenadresse muss deshalb Text und Ortsfeld gemeinsam aktualisieren.
+        if "location" in changed and self.travel_navigation_links:
+            changed.add("body")
+
         payload: dict = {}
         for field in changed:
             target = _UPDATABLE.get(field)

@@ -122,6 +122,13 @@ class TanssRepository:
                                   {"areas": ["COMPANY"], "query": query}) or {}
         return [TanssCompany.model_validate(c) for c in content.get("companies", [])]
 
+    def get_company(self, company_id: int, *, employee_id: int) -> TanssCompany | None:
+        """Liest den Firmenstamm in der Rechte-Sicht des zugeordneten Mitarbeiters."""
+        if not company_id:
+            return None
+        payload = self.client.act_as(employee_id).get(f"/api/v1/companies/{company_id}")
+        return TanssCompany.model_validate(payload) if payload else None
+
     def find_company_by_domain(self, domain: str) -> TanssCompany | None:
         """Firma über die Maildomain eines externen Teilnehmers."""
         if not domain:

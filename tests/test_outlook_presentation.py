@@ -44,6 +44,13 @@ def test_navigation_steht_im_fahrtblock_und_vor_ort_termin() -> None:
     payload = mapper().to_create_payload(termin())
     assert "Route in Google Maps: https://www.google.com/maps/search/?api=1&query=" in payload["body"]["content"]
 
+
+def test_ortsaenderung_aktualisiert_auch_den_kartenlink() -> None:
+    payload = mapper().to_update_payload(
+        termin(), {"location"}, existing_body="Besprechung beim Kunden")
+    assert payload["location"] == {"displayName": "Beispielstraße 1, 68159 Mannheim"}
+    assert "Route in Google Maps:" in payload["body"]["content"]
+
     payload = mapper().to_create_payload(termin(travel_role="travel_to"))
     assert "Route in Google Maps: https://www.google.com/maps/search/?api=1&query=" in payload["body"]["content"]
 

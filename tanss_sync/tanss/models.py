@@ -231,6 +231,15 @@ class TanssCompany(BaseModel):
     website: str = ""
     display_id: str = Field(alias="displayId", default="")
     inactive: bool = False
+    street: str = ""
+    postcode: str = ""
+    city: str = ""
+
+    @property
+    def postal_address(self) -> str:
+        """Adresse für Outlook, nur aus tatsächlich gelieferten Stammdaten."""
+        locality = " ".join(value for value in (self.postcode, self.city) if value)
+        return ", ".join(value for value in (self.street, locality) if value)
 
 
 class TanssEventRule(BaseModel):

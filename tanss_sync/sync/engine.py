@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from ..audit.logger import AuditLogger
 from ..audit.redaction import Redactor
 from ..config.models import AppConfig
+from ..domain.appointment import ServiceLocation
 from ..domain.change import Outcome, SyncAction, SyncOperation
 from ..domain.identity import SyncDirection, UserMapping
 from ..domain.uid import (
@@ -91,6 +92,7 @@ class SyncEngine:
         self.holder = f"{os.getpid()}:{threading.current_thread().name}"
         # Nachweise zu Loeschkandidaten, gueltig nur innerhalb eines Laufs.
         self._evidence: dict[int, DeletionEvidence] = {}
+        self._company_locations: dict[tuple[int, int], str] = {}
 
     # ------------------------------------------------------------------ Durchlauf
 
@@ -154,6 +156,7 @@ class SyncEngine:
         # None und das "(Firma: ...)"-Suffix entstuende nie.
         self.tanss_mapper.company_names = _firmennamen(page.linked_entities)
         tanss_appointments = self._map_tanss(page, user)
+        self._add_company_locations(tanss_appointments, user)
 
         # --- Graph lesen
         events = self.graph.list_calendar_view(user.mailbox, start, end)
@@ -358,6 +361,29 @@ class SyncEngine:
                        else f"{PENDING_PREFIX}rule-{support.recurrence_rule_id}")
             out.append(self.tanss_mapper.to_appointment(support, user.mailbox, uid))
         return out
+
+    def _add_company_locations(self, appointments: list, user: UserMapping) -> None:
+        """Ergänzt leere Vor-Ort-Orte aus TANSS-Firmenstammdaten.
+
+        Ein explizit am Termin gesetzter Outlook-Ort hat immer Vorrang. Die
+        Zusatzabfrage wird nur bei aktivierten Kartenlinks ausgeführt.
+        """
+        if not self.config.sync.travel_navigation_links:
+            return
+        for appointment in appointments:
+            if (appointment.service_location is not ServiceLocation.CUSTOMER
+                    or appointment.location.strip() or not appointment.company_id):
+                continue
+            key = (user.tanss_employee_id, appointment.company_id)
+            if key not in self._company_locations:
+                try:
+                    company = self.tanss.get_company(
+                        appointment.company_id, employee_id=user.tanss_employee_id)
+                    self._company_locations[key] = company.postal_address if company else ""
+                except Exception as exc:  # noqa: BLE001 - Terminabgleich läuft weiter
+                    log.warning("Firmenadresse %s nicht lesbar: %s", appointment.company_id, exc)
+                    self._company_locations[key] = ""
+            appointment.location = self._company_locations[key]
 
     def _apply(self, action: SyncAction, user: UserMapping, audit: AuditLogger,
                report: RunReport, *, dry_run: bool) -> None:
