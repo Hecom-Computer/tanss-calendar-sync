@@ -39,7 +39,8 @@ class GraphMapper:
     def to_appointment(self, event: GraphEvent, mailbox: str, uid: str,
                        *, own_domains: set[str] | None = None) -> Appointment:
         own_domains = own_domains or set()
-        body_text = without_sync_info(self.html.to_text(event.body.get("content", "")))
+        raw_body_text = self.html.to_text(event.body.get("content", ""))
+        body_text = without_sync_info(raw_body_text)
 
         # "Noch nicht zugesagt" gibt es nur, wo es etwas zuzusagen GAB. Graph meldet
         # bei einem selbst angelegten Termin ohne Eingeladene ebenfalls
@@ -83,6 +84,7 @@ class GraphMapper:
             series_master_id=event.series_master_id,
             subject=event.subject,
             body=body_text,
+            outlook_body_raw=raw_body_text,
             location=(event.location or {}).get("displayName", ""),
             start=self.time.from_graph(event.start),
             end=self.time.from_graph(event.end),
@@ -99,6 +101,18 @@ class GraphMapper:
             last_modified=event.last_modified,
             tanss_support_id=event.tanss_support_id,
         )
+
+    def presentation_needs_refresh(self, graph: Appointment,
+                                   tanss: Appointment) -> bool:
+        """Erkennt einen veralteten oder fehlenden Outlook-Infoblock.
+
+        Nur wenn der fachliche Nutztext auf beiden Seiten identisch ist, darf die
+        Darstellung ohne einen fachlichen TANSS-Änderungsvorgang aktualisiert werden.
+        """
+        raw = graph.outlook_body_raw
+        if raw is None or graph.body.strip() != tanss.body.strip():
+            return False
+        return raw.strip() != self._body(tanss).strip()
 
     # ------------------------------------------------------------------ schreiben
 

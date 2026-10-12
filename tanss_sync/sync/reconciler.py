@@ -8,6 +8,7 @@ Feldkenntnis in den Mappern liegt.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from ..domain.appointment import Appointment
@@ -46,11 +47,13 @@ class ReconcileResult:
 
 
 class Reconciler:
-    def __init__(self, rules: SyncRules, echo: EchoGuard, clock=None) -> None:
+    def __init__(self, rules: SyncRules, echo: EchoGuard, clock=None,
+                 presentation_needs_refresh: Callable[[Appointment, Appointment], bool] | None = None) -> None:
         self.rules = rules
         self.echo = echo
         # Entscheidet bei Abwesenheiten, was "derselbe Kalendertag" heisst.
         self.to_local = clock.local if clock is not None else None
+        self.presentation_needs_refresh = presentation_needs_refresh
 
     # ------------------------------------------------------------------ Paare
 
@@ -235,7 +238,19 @@ class Reconciler:
                     (source, "erster Abgleich dieses Termins — Ausgangsstand übernommen"))
                 continue
 
-            if state.side in (Changed.NEITHER, Changed.GRAPH):
+            if state.side is Changed.NEITHER:
+                if (self.presentation_needs_refresh is not None
+                        and self.presentation_needs_refresh(pair.graph, source)):
+                    merged = _carry_identity(source, pair.graph)
+                    changes.actions.append(SyncAction(
+                        direction=SyncDirection.TANSS_TO_M365,
+                        operation=SyncOperation.UPDATE,
+                        appointment=merged,
+                        reason="Outlook-Darstellung aktualisiert",
+                        changed_fields={"body"},
+                    ))
+                continue
+            if state.side is Changed.GRAPH:
                 # NEITHER: nichts zu tun. GRAPH: betrifft die Rueckrichtung (Phase 3).
                 continue
 

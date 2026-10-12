@@ -197,6 +197,9 @@ class Appointment:
     # allein, wie DIESER Mitarbeiter zugesagt hat.
     own_response: str | None = None
     tanss_hash: str | None = None  # Add-in-Marker im Text, unveraendert erhalten
+    # Unverarbeiteter Outlook-Text nur für die Darstellungspflege. Er gehört nicht
+    # zur fachlichen Prüfsumme und wird nie nach TANSS geschrieben.
+    outlook_body_raw: str | None = None
 
     # Aenderungsverfolgung
     created: datetime | None = None  # Anlagezeitpunkt - Kriterium fuer activated_at

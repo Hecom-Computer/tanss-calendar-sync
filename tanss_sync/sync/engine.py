@@ -83,7 +83,9 @@ class SyncEngine:
                                        config.tanss.own_company_id)
         self.rules = SyncRules(config.sync)
         self.echo = EchoGuard(config.sync.echo_suppression_seconds)
-        self.reconciler = Reconciler(self.rules, self.echo, time)
+        self.reconciler = Reconciler(
+            self.rules, self.echo, time,
+            presentation_needs_refresh=self.graph_mapper.presentation_needs_refresh)
         self.guard = DeletionGuard(config.safety, state,
                                    own_domains=config.own_mail_domains)
         self.holder = f"{os.getpid()}:{threading.current_thread().name}"

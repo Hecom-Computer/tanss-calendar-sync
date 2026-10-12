@@ -58,6 +58,18 @@ def test_lesbarer_infoblock_ersetzt_alte_marker() -> None:
     assert without_sync_info(body) == "Besprechung"
 
 
+def test_veraltete_outlook_darstellung_wird_einmalig_aktualisiert() -> None:
+    tanss = termin()
+    graph = termin()
+    graph.outlook_body_raw = (
+        "Besprechung beim Kunden\n\n[TANSS-SYNC-INFO]\n"
+        "TANSS-Link: alt\n[/TANSS-SYNC-INFO]")
+    assert mapper().presentation_needs_refresh(graph, tanss)
+
+    graph.outlook_body_raw = mapper().to_create_payload(tanss)["body"]["content"]
+    assert not mapper().presentation_needs_refresh(graph, tanss)
+
+
 def test_eigene_outlook_kategorien_bleiben_bei_update_erhalten() -> None:
     payload = mapper().to_update_payload(
         termin(), {"subject"}, existing_categories=["Wichtig", "TANSS - Remote"])
