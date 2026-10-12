@@ -247,6 +247,24 @@ class GraphRepository:
         self.client.patch(f"/users/{_q(mailbox)}/events/{_q(event_id)}", body,
                           scope=mailbox)
 
+    # ---------------------------------------------------------- Kategorien
+
+    def list_master_categories(self, mailbox: str) -> list[dict]:
+        """Liest die persönliche Outlook-Kategorienliste eines Postfachs."""
+        payload = self.client.get(f"/users/{_q(mailbox)}/outlook/masterCategories",
+                                  scope=mailbox)
+        return list(payload.get("value", []))
+
+    def create_master_category(self, mailbox: str, *, name: str, color: str) -> dict:
+        """Legt eine Kategorie nur im Zielpostfach an.
+
+        Benötigt Microsoft Graph ``MailboxSettings.ReadWrite``. Der Aufrufer liest
+        vorher die bestehende Liste und ruft diese Methode nie für vorhandene Namen.
+        """
+        return self.client.post(
+            f"/users/{_q(mailbox)}/outlook/masterCategories",
+            {"displayName": name, "color": color}, scope=mailbox)
+
 
 def _q(value: str) -> str:
     """URL-Kodierung für Pfadbestandteile — Event-IDs enthalten ``/`` und ``+``."""

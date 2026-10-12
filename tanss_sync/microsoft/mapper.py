@@ -8,6 +8,7 @@ from ..domain.uid import NO_SEQUENCE
 from ..util.html import HtmlText
 from ..util.timezone import TimeConverter
 from .models import GraphEvent
+from .presentation import decorate_body, merge_categories, without_sync_info
 
 # Felder des Appointment -> Graph-Eigenschaften. Nur was hier steht, wird geschrieben.
 _UPDATABLE = {
@@ -22,16 +23,23 @@ _UPDATABLE = {
 
 
 class GraphMapper:
-    def __init__(self, time: TimeConverter, *, html: HtmlText | None = None) -> None:
+    def __init__(self, time: TimeConverter, *, html: HtmlText | None = None,
+                 ticket_url_template: str | None = None,
+                 sync_categories: bool = False, category_prefix: str = "TANSS",
+                 travel_navigation_links: bool = False) -> None:
         self.time = time
         self.html = html or HtmlText()
+        self.ticket_url_template = ticket_url_template
+        self.sync_categories = sync_categories
+        self.category_prefix = category_prefix
+        self.travel_navigation_links = travel_navigation_links
 
     # ------------------------------------------------------------------ lesen
 
     def to_appointment(self, event: GraphEvent, mailbox: str, uid: str,
                        *, own_domains: set[str] | None = None) -> Appointment:
         own_domains = own_domains or set()
-        body_text = self.html.to_text(event.body.get("content", ""))
+        body_text = without_sync_info(self.html.to_text(event.body.get("content", "")))
 
         # "Noch nicht zugesagt" gibt es nur, wo es etwas zuzusagen GAB. Graph meldet
         # bei einem selbst angelegten Termin ohne Eingeladene ebenfalls
@@ -105,7 +113,7 @@ class GraphMapper:
         """
         payload: dict = {
             "subject": appointment.subject,
-            "body": {"contentType": "text", "content": appointment.body},
+            "body": {"contentType": "text", "content": self._body(appointment)},
             "start": self.time.to_graph(appointment.start),
             "end": self.time.to_graph(appointment.end),
             "showAs": appointment.show_as,
@@ -120,6 +128,9 @@ class GraphMapper:
             payload["location"] = {"displayName": appointment.location}
         if appointment.kind is AppointmentKind.PRIVATE:
             payload["sensitivity"] = "private"
+        if self.sync_categories:
+            payload["categories"] = merge_categories([], appointment,
+                                                        prefix=self.category_prefix)
         if include_attendees and appointment.attendees:
             payload["attendees"] = [
                 {"emailAddress": {"address": a.email, "name": a.name or a.email},
@@ -129,7 +140,8 @@ class GraphMapper:
         return payload
 
     def to_update_payload(self, appointment: Appointment, changed: set[str], *,
-                          existing_body: str | None = None) -> dict:
+                          existing_body: str | None = None,
+                          existing_categories: list[str] | None = None) -> dict:
         """Nur die tatsächlich geänderten Felder.
 
         ``attendees`` fehlt hier bewusst: Schon das bloße Mitsenden löst
@@ -147,7 +159,7 @@ class GraphMapper:
                 continue
             if field == "body":
                 # Teams-Block und TANSS-Hash aus dem bestehenden Text retten.
-                merged = self.html.preserve_blocks(existing_body, appointment.body)
+                merged = self.html.preserve_blocks(existing_body, self._body(appointment))
                 payload["body"] = {"contentType": "text", "content": merged}
             elif field == "location":
                 payload["location"] = {"displayName": appointment.location}
@@ -155,4 +167,14 @@ class GraphMapper:
                 payload[target] = self.time.to_graph(getattr(appointment, field))
             else:
                 payload[target] = getattr(appointment, field)
+        if payload and self.sync_categories:
+            payload["categories"] = merge_categories(existing_categories or [], appointment,
+                                                        prefix=self.category_prefix)
         return payload
+
+    def _body(self, appointment: Appointment) -> str:
+        return decorate_body(
+            appointment.body, appointment,
+            ticket_url_template=self.ticket_url_template,
+            travel_navigation_links=self.travel_navigation_links,
+        )

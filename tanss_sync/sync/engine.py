@@ -70,7 +70,13 @@ class SyncEngine:
         time = TimeConverter(config.microsoft.timezone)
         html = HtmlText()
         self.tanss_mapper = TanssMapper(time, html=html)
-        self.graph_mapper = GraphMapper(time, html=html)
+        self.graph_mapper = GraphMapper(
+            time, html=html,
+            ticket_url_template=config.sync.ticket_url_template,
+            sync_categories=config.sync.sync_categories,
+            category_prefix=config.sync.category_prefix,
+            travel_navigation_links=config.sync.travel_navigation_links,
+        )
         self.subject = SubjectFormatter(
             append_company=config.sync.company_suffix_in_subject)
         self.company = CompanyResolver(tanss, config.own_mail_domains,
@@ -493,9 +499,11 @@ class SyncEngine:
         existing = self.graph.get_event(user.mailbox, appointment.graph_event_id,
                                         with_tanss_id=False)
         existing_body = (existing.body or {}).get("content") if existing else None
+        existing_categories = list(existing.categories) if existing else []
 
         payload = self.graph_mapper.to_update_payload(
-            appointment, action.changed_fields, existing_body=existing_body)
+            appointment, action.changed_fields, existing_body=existing_body,
+            existing_categories=existing_categories)
         if not payload:
             return
         self.graph.update_event(user.mailbox, appointment.graph_event_id, payload)

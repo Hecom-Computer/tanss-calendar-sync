@@ -88,7 +88,26 @@ class SyncConfig(_Base):
     # Wie weit rueckwirkend Bestandstermine uebernommen werden, wenn ein Benutzer
     # aktiviert wird. 0 bedeutet: nur was ab der Aktivierung entsteht.
     adopt_existing_days: int = 90
+    # Outlook-Darstellung. Standardmäßig aus: Ein Upgrade verändert keinen
+    # Bestandstermin, bevor der Betreiber die Darstellung freigibt.
+    ticket_url_template: str | None = None
+    sync_categories: bool = False
+    category_prefix: str = "TANSS"
+    travel_navigation_links: bool = False
     dry_run: bool = False
+
+    @model_validator(mode="after")
+    def _ticket_url_template_is_explicit(self) -> SyncConfig:
+        if self.ticket_url_template:
+            if "{ticket_id}" not in self.ticket_url_template:
+                raise ValueError(
+                    "sync.ticket_url_template muss den Platzhalter {ticket_id} enthalten")
+            try:
+                self.ticket_url_template.format(ticket_id=1)
+            except (KeyError, ValueError) as exc:
+                raise ValueError(
+                    "sync.ticket_url_template darf nur den Platzhalter {ticket_id} verwenden") from exc
+        return self
 
 
 class PushConfig(_Base):

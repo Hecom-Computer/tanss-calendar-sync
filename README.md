@@ -431,6 +431,10 @@ Geheimnisse stehen **nicht** in der Datei, sondern werden referenziert:
 | `sync_series` | `true` | Bezieht Terminserien in den Abgleich ein. Serientermine werden **gepaart und geändert, aber nie neu angelegt**: In TANSS haben sie keinen eigenen Datensatz, in Outlook existieren sie nur als Teil ihrer Serie. |
 | `infinite_series_end_years` | `2` | Enddatum, das eine endlose Outlook-Serie beim Übertragen nach TANSS bekommt, gerechnet ab ihrem Beginn. TANSS lehnt Serien ohne Ende ab. Der Wert wird bei jedem Lauf nachgezogen, die Serie wirkt dadurch weiterhin endlos. |
 | `adopt_existing_days` | `90` | Wie weit rückwirkend der Bestand übernommen wird, wenn ein Benutzer aktiviert wird. Termine, die auf der Gegenseite bereits existieren, werden dabei **übernommen statt verdoppelt**; nur was dort wirklich fehlt, wird angelegt. Bei `0` bleibt der gesamte Bestand unangetastet — er wird dann allerdings auch nicht mehr gepflegt: Eine spätere Änderung an einem älteren Termin bliebe auf ihrer Seite liegen. |
+| `ticket_url_template` | — | Optionale URL-Vorlage für den Link im Outlook-Termin, etwa `https://ticket.example/index.php?ticket={ticket_id}`. Die TANSS-Webadresse wird nie geraten. |
+| `sync_categories` | `false` | Ergänzt für TANSS-Termine eine Kategorie wie `TANSS - Vor Ort`. Persönliche Outlook-Kategorien bleiben erhalten. |
+| `category_prefix` | `TANSS` | Präfix der vom Dienst verwalteten Outlook-Kategorien. |
+| `travel_navigation_links` | `false` | Ergänzt Anfahrt- und Abfahrtblöcke um einen Google-Maps-Link zum bereits hinterlegten Terminort. |
 | `sync_absences` | `true` | Überträgt Abwesenheiten nach Outlook. Immer nur in diese Richtung. |
 | `ignore_show_as_free` | `true` | Übergeht Outlook-Termine mit Status *Frei* / *Verfügbar*. Abschalten führt dazu, dass auch geblockte Zeiten in TANSS landen. |
 | `ignore_all_day` | `true` | Übergeht Outlook-Termine mit gesetztem Haken *Ganztägig*. |
@@ -491,6 +495,21 @@ Nur relevant bei `sync.mode` = `push`.
 | `operational_retention_days` | `30` | Aufbewahrung des Betriebsprotokolls. |
 | `redact_content` | `false` | Ersetzt Betreff und Beschreibung im Protokoll durch eine Prüfsumme. Damit bleibt nachvollziehbar, *dass* sich etwas geändert hat, ohne den Inhalt zu speichern. Empfohlen bei strengen Datenschutzvorgaben. |
 | `log_http` | `false` | Protokolliert jeden API-Aufruf. Hilfreich zur Fehlersuche, sonst sehr gesprächig. |
+
+### Outlook-Kategorien
+
+Nach dem Aktivieren von `sync_categories` können die Master-Kategorien einmalig für
+alle aktivierten Postfächer angelegt werden:
+
+```text
+tanss-sync categories sync --dry-run
+tanss-sync categories sync
+```
+
+Das Anlegen der Farbdefinitionen benötigt zusätzlich die Microsoft-Graph-
+Anwendungsberechtigung `MailboxSettings.ReadWrite` mit Administratorzustimmung.
+Der Abgleich verändert keine persönlichen Kategorien; er verwaltet ausschließlich
+Kategorien mit dem konfigurierten Präfix.
 
 ### `users`
 

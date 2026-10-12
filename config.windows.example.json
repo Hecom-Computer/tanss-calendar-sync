@@ -20,5 +20,11 @@
   },
   "logging": {
     "file": "C:/ProgramData/TANSS Calendar Sync/log/sync.log"
+  },
+  "sync": {
+    "ticket_url_template": null,
+    "sync_categories": false,
+    "category_prefix": "TANSS",
+    "travel_navigation_links": false
   }
 }

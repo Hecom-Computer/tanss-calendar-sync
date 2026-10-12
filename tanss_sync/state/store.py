@@ -340,3 +340,10 @@ class StateStore:
                       "pending_events", "pending_deletions"):
             out[table] = int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
         return out
+
+    def link_counts_by_employee(self) -> dict[int, int]:
+        """Anzahl der aktuell bekannten Kalenderverknüpfungen je TANSS-Mitarbeiter."""
+        rows = self.connect().execute(
+            "SELECT tanss_employee_id, COUNT(*) AS n FROM links "
+            "WHERE state='linked' GROUP BY tanss_employee_id").fetchall()
+        return {int(row["tanss_employee_id"]): int(row["n"]) for row in rows}

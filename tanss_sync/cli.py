@@ -20,6 +20,7 @@ from rich.table import Table
 
 from . import __version__
 from .config.store import ConfigError, ConfigStore
+from .microsoft.presentation import default_categories
 from .runtime import open_runtime, write_lock
 from .setup.doctor import Doctor, Level
 from .sync.directory import UserDirectory
@@ -35,12 +36,15 @@ token_app = typer.Typer(help="Das TANSS-Dauertoken.", no_args_is_help=True)
 db_app = typer.Typer(help="Zustandsdatenbank.", no_args_is_help=True)
 webhooks_app = typer.Typer(help="TANSS-Event-Regeln (Meldewege).",
                            no_args_is_help=True)
+categories_app = typer.Typer(help="Outlook-Kategorien für TANSS-Termine.",
+                             no_args_is_help=True)
 
 log = logging.getLogger(__name__)
 app.add_typer(users_app, name="users")
 app.add_typer(token_app, name="token")
 app.add_typer(db_app, name="db")
 app.add_typer(webhooks_app, name="webhooks")
+app.add_typer(categories_app, name="categories")
 
 console = Console()
 err = Console(stderr=True)
@@ -105,19 +109,41 @@ def health(config: ConfigOpt = None) -> None:
 
 
 @app.command()
-def status(config: ConfigOpt = None) -> None:
+def status(
+    config: ConfigOpt = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Maschinenlesbare Ausgabe")] = False,
+    users: Annotated[bool, typer.Option("--users", help="Aktivierte Benutzer ausgeben")] = False,
+) -> None:
     """Letzter Lauf, Not-Aus, Bestandszahlen. Lesend."""
     with _runtime(config, with_graph=False) as rt:
         last = rt.state.last_run()
         stats = rt.state.stats()
         stop = rt.state.active_emergency()
+        links_by_employee = rt.state.link_counts_by_employee()
+
+        enabled_users = [u for u in rt.config.users if u.enabled]
+        snapshot = {
+            "config": str(rt.store.path),
+            "mode": rt.config.sync.mode,
+            "interval_seconds": rt.config.sync.interval_seconds,
+            "users": [{"employee_id": u.tanss_employee_id, "mailbox": u.mailbox,
+                       "enabled": u.enabled,
+                       "links": links_by_employee.get(u.tanss_employee_id, 0)}
+                      for u in rt.config.users],
+            "links": stats["links"],
+            "last_run": dict(last) if last else None,
+            "emergency": {"kind": stop.kind, "scope": stop.scope, "reason": stop.reason}
+                         if stop else None,
+        }
+        if json_output:
+            console.print_json(json.dumps(snapshot, ensure_ascii=False))
+            return
 
         console.print(f"[bold]Konfiguration[/bold]  {rt.store.path}")
         console.print(f"[bold]Betriebsart[/bold]    {rt.config.sync.mode}"
                       f"  (alle {rt.config.sync.interval_seconds}s)")
 
-        enabled = sum(1 for u in rt.config.users if u.enabled)
-        console.print(f"[bold]Benutzer[/bold]       {enabled} von "
+        console.print(f"[bold]Benutzer[/bold]       {len(enabled_users)} von "
                       f"{len(rt.config.users)} aktiviert")
         console.print(f"[bold]Verknüpfungen[/bold]  {stats['links']}")
 
@@ -140,6 +166,51 @@ def status(config: ConfigOpt = None) -> None:
             if not stop.acknowledged_at:
                 console.print("  Alarm stummschalten (ohne Freigabe): "
                               "[bold]tanss-sync ack[/bold]")
+
+        if users:
+            table = Table(title="Aktivierte Benutzer")
+            table.add_column("TANSS-ID", justify="right")
+            table.add_column("Postfach")
+            table.add_column("Verknüpfungen", justify="right")
+            for user in enabled_users:
+                table.add_row(str(user.tanss_employee_id), user.mailbox,
+                              str(links_by_employee.get(user.tanss_employee_id, 0)))
+            console.print(table)
+
+
+@categories_app.command("sync")
+def categories_sync(
+    config: ConfigOpt = None,
+    dry_run: DryRun = False,
+) -> None:
+    """Legt die konfigurierten TANSS-Kategorien in aktiven Postfächern an.
+
+    Persönliche Kategorien bleiben unangetastet. Fehlende Graph-Berechtigung führt
+    zu einem klaren Fehler, statt dass Termine ohne die gewünschte Farbdefinition
+    verändert werden.
+    """
+    with _runtime(config) as rt:
+        if rt.graph is None:
+            err.print("[red]Ohne Microsoft-Zugang können Kategorien nicht geprüft werden.[/red]")
+            raise typer.Exit(2)
+        if not rt.config.sync.sync_categories:
+            err.print("[yellow]sync.sync_categories ist nicht aktiviert.[/yellow]")
+            raise typer.Exit(2)
+        wanted = default_categories(rt.config.sync.category_prefix)
+        active = [u for u in rt.config.users if u.enabled]
+        if not active:
+            console.print("Keine aktivierten Benutzer.")
+            return
+        for user in active:
+            existing = {str(item.get("displayName", ""))
+                        for item in rt.graph.list_master_categories(user.mailbox)}
+            missing = [(name, color) for name, color in wanted.items() if name not in existing]
+            if dry_run:
+                console.print(f"{user.mailbox}: {len(missing)} Kategorien würden angelegt.")
+                continue
+            for name, color in missing:
+                rt.graph.create_master_category(user.mailbox, name=name, color=color)
+            console.print(f"{user.mailbox}: {len(missing)} Kategorien angelegt.")
 
 
 @app.command()
