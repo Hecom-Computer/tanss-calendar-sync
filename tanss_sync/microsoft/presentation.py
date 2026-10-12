@@ -56,7 +56,14 @@ def sync_info(appointment: Appointment, *, ticket_url_template: str | None,
         lines.append(f"TANSS-Ticket: #{appointment.ticket_id}")
     if link:
         lines.append(f"TANSS-Link: {link}")
-    if travel_navigation_links and appointment.key.travel_role != "main":
+    # Eine Adresse hilft nicht nur bei getrennten An- und Abfahrtblöcken,
+    # sondern ebenso beim eigentlichen Vor-Ort-Termin. Remote- und interne
+    # Termine bekommen keinen Link, auch wenn dort versehentlich ein Ort steht.
+    needs_navigation = (
+        appointment.key.travel_role != "main"
+        or appointment.service_location is ServiceLocation.CUSTOMER
+    )
+    if travel_navigation_links and needs_navigation:
         navigation = navigation_url(appointment.location)
         if navigation:
             lines.append(f"Navigation: {navigation}")

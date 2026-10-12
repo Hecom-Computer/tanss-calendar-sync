@@ -38,7 +38,10 @@ def test_ticket_link_wird_nur_mit_expliziter_vorlage_erzeugt() -> None:
     assert payload["categories"] == ["TANSS - Vor Ort"]
 
 
-def test_navigation_steht_nur_im_fahrtblock() -> None:
+def test_navigation_steht_im_fahrtblock_und_vor_ort_termin() -> None:
+    payload = mapper().to_create_payload(termin())
+    assert "Navigation: https://www.google.com/maps/search/?api=1&query=" in payload["body"]["content"]
+
     payload = mapper().to_create_payload(termin(travel_role="travel_to"))
     assert "Navigation: https://www.google.com/maps/search/?api=1&query=" in payload["body"]["content"]
 

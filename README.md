@@ -434,7 +434,7 @@ Geheimnisse stehen **nicht** in der Datei, sondern werden referenziert:
 | `ticket_url_template` | — | Optionale URL-Vorlage für den Link im Outlook-Termin, etwa `https://ticket.example/index.php?ticket={ticket_id}`. Die TANSS-Webadresse wird nie geraten. |
 | `sync_categories` | `false` | Ergänzt für TANSS-Termine eine Kategorie wie `TANSS - Vor Ort`. Persönliche Outlook-Kategorien bleiben erhalten. |
 | `category_prefix` | `TANSS` | Präfix der vom Dienst verwalteten Outlook-Kategorien. |
-| `travel_navigation_links` | `false` | Ergänzt Anfahrt- und Abfahrtblöcke um einen Google-Maps-Link zum bereits hinterlegten Terminort. |
+| `travel_navigation_links` | `false` | Ergänzt Vor-Ort-Termine sowie Anfahrt- und Abfahrtblöcke um einen Google-Maps-Link zum bereits hinterlegten Terminort. |
 | `sync_absences` | `true` | Überträgt Abwesenheiten nach Outlook. Immer nur in diese Richtung. |
 | `ignore_show_as_free` | `true` | Übergeht Outlook-Termine mit Status *Frei* / *Verfügbar*. Abschalten führt dazu, dass auch geblockte Zeiten in TANSS landen. |
 | `ignore_all_day` | `true` | Übergeht Outlook-Termine mit gesetztem Haken *Ganztägig*. |
