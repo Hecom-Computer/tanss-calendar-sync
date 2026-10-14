@@ -432,7 +432,7 @@ Geheimnisse stehen **nicht** in der Datei, sondern werden referenziert:
 | `infinite_series_end_years` | `2` | Enddatum, das eine endlose Outlook-Serie beim Übertragen nach TANSS bekommt, gerechnet ab ihrem Beginn. TANSS lehnt Serien ohne Ende ab. Der Wert wird bei jedem Lauf nachgezogen, die Serie wirkt dadurch weiterhin endlos. |
 | `adopt_existing_days` | `90` | Wie weit rückwirkend der Bestand übernommen wird, wenn ein Benutzer aktiviert wird. Termine, die auf der Gegenseite bereits existieren, werden dabei **übernommen statt verdoppelt**; nur was dort wirklich fehlt, wird angelegt. Bei `0` bleibt der gesamte Bestand unangetastet — er wird dann allerdings auch nicht mehr gepflegt: Eine spätere Änderung an einem älteren Termin bliebe auf ihrer Seite liegen. |
 | `ticket_url_template` | — | Optionale URL-Vorlage für den Link im Outlook-Termin, etwa `https://ticket.example/index.php?ticket={ticket_id}`. Die TANSS-Webadresse wird nie geraten. |
-| `sync_categories` | `false` | Ergänzt für TANSS-Termine eine Kategorie wie `TANSS - Vor Ort`. Persönliche Outlook-Kategorien bleiben erhalten. |
+| `sync_categories` | `false` | Ergänzt für TANSS-Termine eine Kategorie wie `TANSS - Vor Ort`; Urlaub und Zeitausgleich erhalten eigene Kategorien. Persönliche Outlook-Kategorien bleiben erhalten. |
 | `category_prefix` | `TANSS` | Präfix der vom Dienst verwalteten Outlook-Kategorien. |
 | `travel_navigation_links` | `false` | Ergänzt Vor-Ort-Termine sowie Anfahrt- und Abfahrtblöcke um einen Google-Maps-Link zum bereits hinterlegten Terminort. |
 | `sync_absences` | `true` | Überträgt Abwesenheiten nach Outlook. Immer nur in diese Richtung. |

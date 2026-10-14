@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import datetime as dt
 
+import pytest
+
 from tanss_sync.domain.appointment import Appointment, AppointmentKind, ServiceLocation
 from tanss_sync.domain.identity import SyncKey
 from tanss_sync.microsoft.mapper import GraphMapper
-from tanss_sync.microsoft.presentation import without_sync_info
+from tanss_sync.microsoft.presentation import default_categories, without_sync_info
 from tanss_sync.util.timezone import TimeConverter
 
 
@@ -88,3 +90,21 @@ def test_private_tanss_termin_erhaelt_private_kategorie() -> None:
     value.kind = AppointmentKind.PRIVATE
     payload = mapper().to_create_payload(value)
     assert payload["categories"] == ["TANSS - Privat"]
+
+
+@pytest.mark.parametrize(("kind", "category"), [
+    (AppointmentKind.VACATION, "TANSS - Urlaub"),
+    (AppointmentKind.OVERTIME, "TANSS - Zeitausgleich"),
+])
+def test_abwesenheit_erhaelt_eindeutige_kategorie(
+        kind: AppointmentKind, category: str) -> None:
+    value = termin()
+    value.kind = kind
+    payload = mapper().to_create_payload(value)
+    assert payload["categories"] == [category]
+
+
+def test_standardkategorien_enthalten_urlaub_und_zeitausgleich() -> None:
+    categories = default_categories("TANSS")
+    assert "TANSS - Urlaub" in categories
+    assert "TANSS - Zeitausgleich" in categories

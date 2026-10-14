@@ -95,6 +95,10 @@ def category_for(appointment: Appointment, *, prefix: str) -> str | None:
         return None
     if appointment.kind is AppointmentKind.PRIVATE:
         label = "Privat"
+    elif appointment.kind is AppointmentKind.VACATION:
+        label = "Urlaub"
+    elif appointment.kind is AppointmentKind.OVERTIME:
+        label = "Zeitausgleich"
     elif appointment.kind.is_absence:
         label = "Abwesenheit"
     elif appointment.key.travel_role != "main":
@@ -123,6 +127,8 @@ def default_categories(prefix: str) -> dict[str, str]:
         f"{prefix} - Remote": "preset7",
         f"{prefix} - Fahrt": "preset22",
         f"{prefix} - Privat": "preset19",
+        f"{prefix} - Urlaub": "preset24",
+        f"{prefix} - Zeitausgleich": "preset3",
         f"{prefix} - Abwesenheit": "preset24",
         f"{prefix} - Intern": "preset14",
         f"{prefix} - Termin": "preset9",
