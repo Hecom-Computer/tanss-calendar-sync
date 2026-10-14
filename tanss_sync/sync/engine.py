@@ -30,6 +30,7 @@ from ..state.records import LinkRecord, RunReport
 from ..state.store import StateStore
 from ..tanss.errors import ChangesDiscardedError
 from ..tanss.mapper import TanssMapper
+from ..tanss.models import TanssPlanningType, TanssSupport
 from ..tanss.repository import TanssRepository
 from ..util.html import HtmlText
 from ..util.timezone import TimeConverter
@@ -42,6 +43,36 @@ from .rules import SyncRules
 from .subject import SubjectFormatter
 
 log = logging.getLogger(__name__)
+
+
+_ABSENCE_PLANNING_TYPES = frozenset({
+    TanssPlanningType.VACATION,
+    TanssPlanningType.ILLNESS,
+    TanssPlanningType.ABSENCE,
+    TanssPlanningType.OVERTIME,
+    TanssPlanningType.STAND_BY,
+    TanssPlanningType.CUSTOM,
+})
+
+
+def _include_existing_absences(filtered: list[TanssSupport],
+                                unfiltered: list[TanssSupport]) -> list[TanssSupport]:
+    """Ergänzt Abwesenheiten, die vor der Benutzeraktivierung angelegt wurden.
+
+    Der Aktivierungsfilter schützt vor der nachträglichen Übernahme alter Termine.
+    Für Urlaub und andere Abwesenheiten wäre das jedoch falsch: Ein heute
+    genehmigter Urlaub für einen künftigen Tag kann lange vor der Aktivierung
+    angelegt worden sein. Die zusätzliche Abfrage erweitert daher ausschließlich
+    diese schreibgeschützte Einbahnstraße TANSS → Outlook.
+    """
+    result = list(filtered)
+    known = {(item.id, item.date, item.duration, item.planning_type) for item in result}
+    for item in unfiltered:
+        identity = (item.id, item.date, item.duration, item.planning_type)
+        if item.planning_type in _ABSENCE_PLANNING_TYPES and identity not in known:
+            result.append(item)
+            known.add(identity)
+    return result
 
 
 def fahrten_nach_haupttermin(pairs) -> dict[str, list]:
@@ -151,6 +182,15 @@ class SyncEngine:
         page = self.tanss.list_appointments(
             user.tanss_employee_id, start, end, created_from=user.activated_at,
             with_recurring=self.config.sync.sync_series)
+        if self.config.sync.sync_absences:
+            # Ein genehmigter Urlaub kann Monate vor der Benutzeraktivierung
+            # angelegt sein, aber erst künftig stattfinden. Er soll trotzdem im
+            # Outlook-Kalender erscheinen. Normale Alttermine bleiben durch den
+            # Aktivierungsfilter weiterhin ausgeschlossen.
+            absences = self.tanss.list_appointments(
+                user.tanss_employee_id, start, end,
+                with_recurring=self.config.sync.sync_series)
+            page.items = _include_existing_absences(page.items, absences.items)
         # Die Firmennamen kommen mit der Terminliste mit - ohne sie bliebe
         # company_suffix_in_subject ein toter Schalter: company_name waere immer
         # None und das "(Firma: ...)"-Suffix entstuende nie.
