@@ -41,6 +41,15 @@ _KIND_BY_TYPE = {
     TanssPlanningType.CUSTOM: AppointmentKind.CUSTOM,
 }
 
+# TANSS liefert bei Abwesenheiten häufig keinen ``outlookTitle``. Ein leerer
+# Betreff wäre im Kalender nicht brauchbar; diese Bezeichnungen sind reine
+# Outlook-Darstellung und werden wegen der Einbahnstraße nie nach TANSS zurück
+# geschrieben.
+_DEFAULT_ABSENCE_SUBJECTS = {
+    AppointmentKind.VACATION: "Urlaub",
+    AppointmentKind.OVERTIME: "Zeitausgleich",
+}
+
 _TYPE_BY_KIND = {
     AppointmentKind.FIXED: TanssPlanningType.APPOINTMENT_FIX,
     AppointmentKind.TENTATIVE: TanssPlanningType.APPOINTMENT_PROPOSAL,
@@ -81,6 +90,7 @@ class TanssMapper:
             mailbox=mailbox, uid=uid,
             sequence=occurrence_sequence(start) if support.is_occurrence else NO_SEQUENCE)
         kind = _KIND_BY_TYPE.get(support.planning_type, AppointmentKind.UNKNOWN)
+        subject = support.outlook_title.strip() or _DEFAULT_ABSENCE_SUBJECTS.get(kind, "")
 
         return Appointment(
             key=key,
@@ -88,7 +98,7 @@ class TanssMapper:
             recurrence_rule_id=support.recurrence_rule_id,
             recurrence_sequence_id=support.recurrence_rule_sequence_id,
             is_occurrence=support.is_occurrence,
-            subject=support.outlook_title.strip(),
+            subject=subject,
             body=support.text,
             location=support.outlook_location,
             start=start,
