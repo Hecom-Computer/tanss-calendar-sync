@@ -156,6 +156,7 @@ class UserDirectory:
                 enabled=mapping.enabled,
                 direction=mapping.direction,
                 activated_at=mapping.activated_at,
+                adopt_existing_series=mapping.adopt_existing_series,
             )
             log.info("Neu aufgenommen: %s (%s) → %s%s", mapping.tanss_name,
                      mapping.tanss_employee_id, mapping.mailbox,
@@ -182,6 +183,7 @@ class UserDirectory:
             enabled=user.enabled,
             direction=user.direction,
             activated_at=user.activated_at,
+            adopt_existing_series=user.adopt_existing_series,
         )
 
 
@@ -195,6 +197,7 @@ def mappings_from_config(config: AppConfig) -> list[UserMapping]:
             enabled=u.enabled,
             direction=SyncDirection(u.direction),
             activated_at=u.activated_at,
+            adopt_existing_series=u.adopt_existing_series,
         )
         for u in config.users
     ]

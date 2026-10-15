@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from tanss_sync.microsoft.mapper import GraphMapper
+from tanss_sync.sync.engine import _include_existing_series_masters
 from tanss_sync.tanss.mapper import TanssMapper
 from tanss_sync.tanss.models import TanssSupport
 from tanss_sync.util.timezone import TimeConverter
@@ -35,3 +36,19 @@ def test_tanss_master_rule_becomes_graph_recurrence() -> None:
             "recurrenceTimeZone": "Europe/Berlin",
         },
     }
+
+
+def test_existing_series_master_is_adopted_but_not_old_single_appointment() -> None:
+    master = TanssSupport(
+        id=31298, date=int(datetime(2026, 10, 19, 9, tzinfo=UTC).timestamp()),
+        duration=60, employeeId=6859, companyId=0, planningType="APPOINTMENT_FIX",
+        recurrenceRule="RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
+    )
+    old_single = TanssSupport(
+        id=31299, date=int(datetime(2026, 10, 20, 9, tzinfo=UTC).timestamp()),
+        duration=60, employeeId=6859, companyId=0, planningType="APPOINTMENT_FIX",
+    )
+
+    adopted = _include_existing_series_masters([], [master, old_single])
+
+    assert adopted == [master]

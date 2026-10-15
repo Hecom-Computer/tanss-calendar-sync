@@ -189,6 +189,10 @@ class UserConfig(_Base):
     enabled: bool = False
     direction: SyncDirection = SyncDirection.BOTH
     activated_at: datetime | None = None
+    # Bestehende Serien bleiben beim Aktivieren standardmäßig außen vor. Sie
+    # können je Mitarbeiter bewusst übernommen werden, ohne alte Einzeltermine
+    # nachträglich in den Kalender zu schreiben.
+    adopt_existing_series: bool = False
     defaults: DefaultsConfig | None = None  # ueberschreibt den globalen Block
 
 

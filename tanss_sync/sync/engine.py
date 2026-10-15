@@ -75,6 +75,24 @@ def _include_existing_absences(filtered: list[TanssSupport],
     return result
 
 
+def _include_existing_series_masters(filtered: list[TanssSupport],
+                                     unfiltered: list[TanssSupport]) -> list[TanssSupport]:
+    """Ergänzt ausschließlich echte Serien-Master aus dem Altbestand.
+
+    Der Aktivierungsstichtag bleibt für Einzeltermine wirksam. Durch die
+    explizite Benutzerfreigabe werden nur TANSS-Master mit RFC-5545-Regel
+    ergänzt, damit Outlook eine echte Serie statt vieler Einzeltermine erhält.
+    """
+    result = list(filtered)
+    known = {(item.id, item.date, item.duration, item.planning_type) for item in result}
+    for item in unfiltered:
+        identity = (item.id, item.date, item.duration, item.planning_type)
+        if item.id and item.recurrence_rule and identity not in known:
+            result.append(item)
+            known.add(identity)
+    return result
+
+
 def fahrten_nach_haupttermin(pairs) -> dict[str, list]:
     """Fahrt-Blöcke, gruppiert nach der UID ihres Haupttermins.
 
@@ -191,6 +209,13 @@ class SyncEngine:
                 user.tanss_employee_id, start, end,
                 with_recurring=self.config.sync.sync_series)
             page.items = _include_existing_absences(page.items, absences.items)
+        if self.config.sync.sync_series and user.adopt_existing_series:
+            # Serien-Master können lange vor der Benutzeraktivierung angelegt
+            # worden sein. Die gezielte Freigabe übernimmt nur solche Master;
+            # alte Einzeltermine bleiben weiterhin ausgeschlossen.
+            series = self.tanss.list_appointments(
+                user.tanss_employee_id, start, end, with_recurring=True)
+            page.items = _include_existing_series_masters(page.items, series.items)
         # Die Firmennamen kommen mit der Terminliste mit - ohne sie bliebe
         # company_suffix_in_subject ein toter Schalter: company_name waere immer
         # None und das "(Firma: ...)"-Suffix entstuende nie.

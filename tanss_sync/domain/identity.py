@@ -69,6 +69,7 @@ class UserMapping:
     enabled: bool = False
     direction: SyncDirection = SyncDirection.BOTH
     activated_at: datetime | None = None
+    adopt_existing_series: bool = False
 
     @property
     def is_ready(self) -> bool:
