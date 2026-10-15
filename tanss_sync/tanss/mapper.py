@@ -16,6 +16,7 @@ from ..domain.appointment import (
     TravelTime,
 )
 from ..domain.identity import SyncKey
+from ..domain.recurrence import RecurrencePattern
 from ..domain.uid import (
     NO_SEQUENCE,
     format_sync_group,
@@ -23,6 +24,7 @@ from ..domain.uid import (
     parse_sync_group,
 )
 from ..util.html import HtmlText
+from ..util.rrule import to_graph
 from ..util.timezone import TimeConverter
 from .models import LINK_TYPE_COMPANY, MetaKey, TanssPlanningType, TanssSupport, TanssSupportWrite
 
@@ -91,6 +93,16 @@ class TanssMapper:
             sequence=occurrence_sequence(start) if support.is_occurrence else NO_SEQUENCE)
         kind = _KIND_BY_TYPE.get(support.planning_type, AppointmentKind.UNKNOWN)
         subject = support.outlook_title.strip() or _DEFAULT_ABSENCE_SUBJECTS.get(kind, "")
+        recurrence = None
+        if support.recurrence_rule:
+            # Der Master wird als echte Graph-Serie erzeugt. Ist die Regel ungültig
+            # oder nicht unterstützt, beendet ``to_graph`` den Lauf vor jedem
+            # Schreibzugriff statt eine gefährliche Einzeltermin-Kopie anzulegen.
+            recurrence = RecurrencePattern(
+                rrule=support.recurrence_rule,
+                graph=to_graph(support.recurrence_rule, start, self.time.iana_timezone),
+                start_date=start,
+            )
 
         return Appointment(
             key=key,
@@ -98,6 +110,7 @@ class TanssMapper:
             recurrence_rule_id=support.recurrence_rule_id,
             recurrence_sequence_id=support.recurrence_rule_sequence_id,
             is_occurrence=support.is_occurrence,
+            recurrence=recurrence,
             subject=subject,
             body=support.text,
             location=support.outlook_location,

@@ -142,6 +142,8 @@ class GraphMapper:
             payload["location"] = {"displayName": appointment.location}
         if appointment.kind is AppointmentKind.PRIVATE:
             payload["sensitivity"] = "private"
+        if appointment.recurrence and appointment.recurrence.graph:
+            payload["recurrence"] = appointment.recurrence.graph
         if self.sync_categories:
             payload["categories"] = merge_categories([], appointment,
                                                         prefix=self.category_prefix)

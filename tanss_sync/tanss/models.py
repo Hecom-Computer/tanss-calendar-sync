@@ -96,6 +96,9 @@ class TanssSupport(BaseModel):
 
     # Serienkennung - NUR hierueber wird eine Occurrence identifiziert
     recurrence_rule_id: int | None = Field(alias="recurrenceRuleId", default=None)
+    # Nur mit ``fetchRecurrenceRules`` am Serien-Master enthalten. TANSS liefert
+    # die Regel als RFC-5545-Text (z. B. ``RRULE:FREQ=WEEKLY;...``).
+    recurrence_rule: str | None = Field(alias="recurrenceRule", default=None)
     recurrence_master_link_id: int | None = Field(alias="recurrenceMasterLinkId", default=None)
     recurrence_rule_sequence_id: int | None = Field(alias="recurrenceRuleSequenceId",
                                                     default=None)

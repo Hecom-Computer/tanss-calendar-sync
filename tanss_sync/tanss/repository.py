@@ -77,8 +77,11 @@ class TanssRepository:
         }
         if with_recurring:
             # fetchRecurring expandiert die Occurrences. fetchRecurrenceRules tut das
-            # NICHT - es liefert nur das Regel-Objekt an den Mastern.
+            # NICHT - es liefert nur die RFC-5545-Regel an den Mastern. Beides wird
+            # gebraucht: der Master zum einmaligen Anlegen der Outlook-Serie und die
+            # Occurrences fuer die anschliessende Paarung.
             body["fetchRecurring"] = True
+            body["fetchRecurrenceRules"] = True
         if created_from is not None:
             body["creationTimeframe"] = {"from": _epoch(created_from), "to": 0}
 

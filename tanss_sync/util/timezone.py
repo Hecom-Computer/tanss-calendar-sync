@@ -78,6 +78,11 @@ class TimeConverter:
     def local(self, value: datetime) -> datetime:
         return value.astimezone(_zone_of(self.display_timezone))
 
+    @property
+    def iana_timezone(self) -> str:
+        """IANA-Name fuer Graph-Serienregeln."""
+        return _WINDOWS_TO_IANA.get(self.display_timezone, self.display_timezone)
+
     def is_known_timezone(self) -> bool:
         """Ob die konfigurierte Zeitzone auflösbar ist — für ``doctor``."""
         return _zone_of(self.display_timezone) is not UTC
