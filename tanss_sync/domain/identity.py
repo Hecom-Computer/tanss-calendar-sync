@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
@@ -70,6 +70,7 @@ class UserMapping:
     direction: SyncDirection = SyncDirection.BOTH
     activated_at: datetime | None = None
     adopt_existing_series: bool = False
+    adopt_existing_series_ids: list[int] = field(default_factory=list)
 
     @property
     def is_ready(self) -> bool:

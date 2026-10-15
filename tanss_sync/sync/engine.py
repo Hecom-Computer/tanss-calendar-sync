@@ -75,19 +75,14 @@ def _include_existing_absences(filtered: list[TanssSupport],
     return result
 
 
-def _include_existing_series_masters(filtered: list[TanssSupport],
-                                     unfiltered: list[TanssSupport]) -> list[TanssSupport]:
-    """Ergänzt ausschließlich echte Serien-Master aus dem Altbestand.
-
-    Der Aktivierungsstichtag bleibt für Einzeltermine wirksam. Durch die
-    explizite Benutzerfreigabe werden nur TANSS-Master mit RFC-5545-Regel
-    ergänzt, damit Outlook eine echte Serie statt vieler Einzeltermine erhält.
-    """
+def _include_selected_series_masters(filtered: list[TanssSupport],
+                                     masters: list[TanssSupport]) -> list[TanssSupport]:
+    """Ergänzt bewusst freigegebene Serienmaster zum Aktivierungsbestand."""
     result = list(filtered)
     known = {(item.id, item.date, item.duration, item.planning_type) for item in result}
-    for item in unfiltered:
+    for item in masters:
         identity = (item.id, item.date, item.duration, item.planning_type)
-        if item.id and item.recurrence_rule and identity not in known:
+        if item.id and item.rrule and identity not in known:
             result.append(item)
             known.add(identity)
     return result
@@ -209,13 +204,26 @@ class SyncEngine:
                 user.tanss_employee_id, start, end,
                 with_recurring=self.config.sync.sync_series)
             page.items = _include_existing_absences(page.items, absences.items)
-        if self.config.sync.sync_series and user.adopt_existing_series:
+        if self.config.sync.sync_series and user.adopt_existing_series_ids:
             # Serien-Master können lange vor der Benutzeraktivierung angelegt
-            # worden sein. Die gezielte Freigabe übernimmt nur solche Master;
-            # alte Einzeltermine bleiben weiterhin ausgeschlossen.
-            series = self.tanss.list_appointments(
-                user.tanss_employee_id, start, end, with_recurring=True)
-            page.items = _include_existing_series_masters(page.items, series.items)
+            # worden sein. Daher laden wir ausschließlich die bewusst in der
+            # Konfiguration genannten Master direkt nach. Einzeltermine bleiben
+            # weiterhin durch den Aktivierungsstichtag ausgeschlossen.
+            masters: list[TanssSupport] = []
+            for support_id in user.adopt_existing_series_ids:
+                master = self.tanss.get_support(support_id)
+                if master is None:
+                    log.warning("Freigegebener Serienmaster %s existiert nicht", support_id)
+                    continue
+                if master.employee_id != user.tanss_employee_id:
+                    log.warning("Serienmaster %s gehört nicht zu Mitarbeiter %s", support_id,
+                                user.tanss_employee_id)
+                    continue
+                if not master.rrule:
+                    log.warning("Serienmaster %s enthält keine Wiederholungsregel", support_id)
+                    continue
+                masters.append(master)
+            page.items = _include_selected_series_masters(page.items, masters)
         # Die Firmennamen kommen mit der Terminliste mit - ohne sie bliebe
         # company_suffix_in_subject ein toter Schalter: company_name waere immer
         # None und das "(Firma: ...)"-Suffix entstuende nie.
@@ -501,6 +509,17 @@ class SyncEngine:
         created = self.graph.create_event(user.mailbox, payload,
                                           transaction_id=str(uuid.uuid4()))
 
+        # Graph kann Ausnahmen nicht gemeinsam mit dem Serienmaster anlegen.
+        # Sie werden deshalb direkt danach als exakt passende Serienvorkommen
+        # entfernt. Scheitert das, wird der eben erzeugte Master zurückgenommen;
+        # eine falsche Serie mit zusätzlichen Terminen darf nicht bestehen bleiben.
+        try:
+            self._apply_series_exclusions(user, created.id, appointment)
+        except Exception:
+            self.graph.delete_event(user.mailbox, created.id, is_organizer=True,
+                                    has_external_attendees=False)
+            raise
+
         # Die Kopplungs-UID entsteht ERST hier - vorher gibt es sie nicht.
         #
         # Aber NUR fuer die Hauptzeile. Ein Fahrt-Block traegt in Outlook eine eigene
@@ -542,6 +561,31 @@ class SyncEngine:
             log.warning("Kopplung für Support %s nicht zurückgeschrieben: %s. "
                         "Der Outlook-Termin ist angelegt und lokal verknüpft.",
                         appointment.tanss_support_id, exc)
+
+    def _apply_series_exclusions(self, user: UserMapping, series_master_id: str,
+                                 appointment) -> None:
+        """Entfernt künftige TANSS-Ausnahmen aus einer neu angelegten Graph-Serie."""
+        upcoming = [value for value in appointment.recurrence_exclusions
+                    if value >= datetime.now(UTC)]
+        if not upcoming:
+            return
+
+        first = min(upcoming)
+        last = max(upcoming) + timedelta(minutes=1)
+        instances = self.graph.list_series_instances(user.mailbox, series_master_id,
+                                                     first, last)
+        by_start = {
+            self.graph_mapper.time.from_graph(event.start): event
+            for event in instances
+        }
+        missing = [value for value in upcoming if value not in by_start]
+        if missing:
+            raise RuntimeError(
+                f"Graph lieferte {len(missing)} TANSS-Serienausnahmen nicht als Vorkommen")
+        for value in upcoming:
+            event = by_start[value]
+            self.graph.delete_event(user.mailbox, event.id, is_organizer=True,
+                                    has_external_attendees=False)
 
     def _adopt_in_graph(self, action: SyncAction, user: UserMapping) -> None:
         """Einen bestehenden Outlook-Termin übernehmen, ohne ihn zu verändern.

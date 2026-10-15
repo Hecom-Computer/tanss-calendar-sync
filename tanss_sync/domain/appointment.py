@@ -186,6 +186,8 @@ class Appointment:
     break_start: datetime | None = None
     break_minutes: int = 0
     recurrence: RecurrencePattern | None = None
+    # Nur TANSS-Serienmaster: einzelne, bewusst ausgeschlossene Vorkommen.
+    recurrence_exclusions: list[datetime] = field(default_factory=list)
     # Die TANSS-eigene Nummer der Occurrence. Getrennt vom Schluessel gefuehrt: Der
     # Schluessel muss auf beiden Seiten gleich entstehen, diese Nummer gibt es nur in
     # TANSS - sie wird dort aber beim Schreiben erwartet.

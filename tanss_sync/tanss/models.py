@@ -46,6 +46,27 @@ class TanssPlanningType(StrEnum):
     CUSTOM = "CUSTOM"
 
 
+class TanssRecurrenceExclusion(BaseModel):
+    """Ein aus einer TANSS-Serie entfernter einzelner Termin."""
+
+    model_config = ConfigDict(frozen=True, populate_by_name=True, extra="ignore")
+
+    timestamp: int
+
+
+class TanssRecurrenceRule(BaseModel):
+    """Die Regel eines TANSS-Serienmasters aus dem Einzelabruf."""
+
+    model_config = ConfigDict(frozen=True, populate_by_name=True, extra="ignore")
+
+    id: int
+    rrule: str
+    link_id: int = Field(alias="linkId")
+    start_date: int = Field(alias="startDate")
+    end_date: int = Field(alias="endDate")
+    excluded: list[TanssRecurrenceExclusion] = Field(default_factory=list)
+
+
 class MetaKey(StrEnum):
     """Die sechs Schlüssel in ``leistungen_meta``."""
 
@@ -96,9 +117,10 @@ class TanssSupport(BaseModel):
 
     # Serienkennung - NUR hierueber wird eine Occurrence identifiziert
     recurrence_rule_id: int | None = Field(alias="recurrenceRuleId", default=None)
-    # Nur mit ``fetchRecurrenceRules`` am Serien-Master enthalten. TANSS liefert
-    # die Regel als RFC-5545-Text (z. B. ``RRULE:FREQ=WEEKLY;...``).
-    recurrence_rule: str | None = Field(alias="recurrenceRule", default=None)
+    # Der Einzelabruf eines Serienmasters liefert ein Objekt mit ``rrule`` und
+    # Ausnahmen. Ältere TANSS-Antworten können nur den Regeltext liefern.
+    recurrence_rule: TanssRecurrenceRule | str | None = Field(alias="recurrenceRule",
+                                                               default=None)
     recurrence_master_link_id: int | None = Field(alias="recurrenceMasterLinkId", default=None)
     recurrence_rule_sequence_id: int | None = Field(alias="recurrenceRuleSequenceId",
                                                     default=None)
@@ -118,6 +140,18 @@ class TanssSupport(BaseModel):
     def is_occurrence(self) -> bool:
         """Virtuelle, aus der Regel berechnete Occurrence ohne eigenen Datensatz."""
         return self.id == 0 and self.recurrence_rule_sequence_id is not None
+
+    @property
+    def rrule(self) -> str | None:
+        if isinstance(self.recurrence_rule, TanssRecurrenceRule):
+            return self.recurrence_rule.rrule
+        return self.recurrence_rule
+
+    @property
+    def recurrence_exclusions(self) -> tuple[int, ...]:
+        if isinstance(self.recurrence_rule, TanssRecurrenceRule):
+            return tuple(item.timestamp for item in self.recurrence_rule.excluded)
+        return ()
 
     @property
     def sync_group(self) -> str | None:

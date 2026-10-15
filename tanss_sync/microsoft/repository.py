@@ -85,6 +85,19 @@ class GraphRepository:
                                 params=params, scope=mailbox)
         return [GraphEvent.model_validate(item) for item in raw]
 
+    def list_series_instances(self, mailbox: str, series_master_id: str,
+                              start: datetime, end: datetime) -> list[GraphEvent]:
+        """Liest die expandierten Vorkommen einer gerade angelegten Serie."""
+        params = {
+            "startDateTime": self.time.graph_window(start),
+            "endDateTime": self.time.graph_window(end),
+            "$top": "100",
+        }
+        raw = self.client.paged(
+            f"/users/{_q(mailbox)}/events/{_q(series_master_id)}/instances",
+            params=params, scope=mailbox)
+        return [GraphEvent.model_validate(item) for item in raw]
+
     def delta(self, mailbox: str, *, deltalink: str | None,
               start: datetime, end: datetime) -> DeltaResult:
         """Inkrementelle Änderungen.

@@ -94,13 +94,13 @@ class TanssMapper:
         kind = _KIND_BY_TYPE.get(support.planning_type, AppointmentKind.UNKNOWN)
         subject = support.outlook_title.strip() or _DEFAULT_ABSENCE_SUBJECTS.get(kind, "")
         recurrence = None
-        if support.recurrence_rule:
+        if support.rrule:
             # Der Master wird als echte Graph-Serie erzeugt. Ist die Regel ungültig
             # oder nicht unterstützt, beendet ``to_graph`` den Lauf vor jedem
             # Schreibzugriff statt eine gefährliche Einzeltermin-Kopie anzulegen.
             recurrence = RecurrencePattern(
-                rrule=support.recurrence_rule,
-                graph=to_graph(support.recurrence_rule, start, self.time.iana_timezone),
+                rrule=support.rrule,
+                graph=to_graph(support.rrule, start, self.time.iana_timezone),
                 start_date=start,
             )
 
@@ -111,6 +111,8 @@ class TanssMapper:
             recurrence_sequence_id=support.recurrence_rule_sequence_id,
             is_occurrence=support.is_occurrence,
             recurrence=recurrence,
+            recurrence_exclusions=[self.time.tanss_to_utc(value)
+                                   for value in support.recurrence_exclusions],
             subject=subject,
             body=support.text,
             location=support.outlook_location,

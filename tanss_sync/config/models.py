@@ -193,6 +193,9 @@ class UserConfig(_Base):
     # können je Mitarbeiter bewusst übernommen werden, ohne alte Einzeltermine
     # nachträglich in den Kalender zu schreiben.
     adopt_existing_series: bool = False
+    # TANSS-Master-IDs, die bewusst als bestehende Outlook-Serien übernommen
+    # werden. Eine leere Liste bedeutet: keine historische Serie übernehmen.
+    adopt_existing_series_ids: list[int] = Field(default_factory=list)
     defaults: DefaultsConfig | None = None  # ueberschreibt den globalen Block
 
 
