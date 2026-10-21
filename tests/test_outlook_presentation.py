@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import html
 
 import pytest
 
@@ -10,6 +11,7 @@ from tanss_sync.domain.appointment import Appointment, AppointmentKind, ServiceL
 from tanss_sync.domain.identity import SyncKey
 from tanss_sync.microsoft.mapper import GraphMapper
 from tanss_sync.microsoft.presentation import default_categories, without_sync_info
+from tanss_sync.util.html import HtmlText
 from tanss_sync.util.timezone import TimeConverter
 
 
@@ -77,6 +79,43 @@ def test_veraltete_outlook_darstellung_wird_einmalig_aktualisiert() -> None:
 
     graph.outlook_body_raw = mapper().to_create_payload(tanss)["body"]["content"]
     assert not mapper().presentation_needs_refresh(graph, tanss)
+
+
+def test_outlook_link_formatierung_erzeugt_keine_endlosschleife() -> None:
+    tanss = termin()
+    graph = termin()
+    expected = mapper().to_create_payload(tanss)["body"]["content"]
+    url = "https://ticket.example/index.php?ticket=12345"
+    graph.outlook_body_raw = expected.replace(url, f"[{url}](<{url}>)")
+    graph.outlook_body_raw = graph.outlook_body_raw.replace("\n", "  \n")
+    assert not mapper().presentation_needs_refresh(graph, tanss)
+
+
+def test_veraenderter_link_wird_weiterhin_aktualisiert() -> None:
+    tanss = termin()
+    graph = termin()
+    expected = mapper().to_create_payload(tanss)["body"]["content"]
+    url = "https://ticket.example/index.php?ticket=12345"
+    graph.outlook_body_raw = expected.replace(url, f"[{url}](<https://evil.example/>)")
+    assert mapper().presentation_needs_refresh(graph, tanss)
+
+
+def test_outlook_html_mit_automatisch_verlinkter_url_ist_stabil() -> None:
+    tanss = termin()
+    graph = termin()
+    expected = mapper().to_create_payload(tanss)["body"]["content"]
+    url = "https://ticket.example/index.php?ticket=12345"
+    markup = html.escape(expected).replace(url, f'<a href="{url}">{url}</a>')
+    graph.outlook_body_raw = HtmlText().to_text("<html><body>" + markup.replace("\n", "<br>") + "</body></html>")
+    assert not mapper().presentation_needs_refresh(graph, tanss)
+
+
+def test_geaenderte_ticketnummer_bleibt_erkennbar() -> None:
+    tanss = termin()
+    graph = termin()
+    graph.outlook_body_raw = mapper().to_create_payload(tanss)["body"]["content"]
+    tanss.ticket_id = 99999
+    assert mapper().presentation_needs_refresh(graph, tanss)
 
 
 def test_eigene_outlook_kategorien_bleiben_bei_update_erhalten() -> None:

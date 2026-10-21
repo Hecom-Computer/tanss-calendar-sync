@@ -8,7 +8,12 @@ from ..domain.uid import NO_SEQUENCE
 from ..util.html import HtmlText
 from ..util.timezone import TimeConverter
 from .models import GraphEvent
-from .presentation import decorate_body, merge_categories, without_sync_info
+from .presentation import (
+    comparable_presentation,
+    decorate_body,
+    merge_categories,
+    without_sync_info,
+)
 
 # Felder des Appointment -> Graph-Eigenschaften. Nur was hier steht, wird geschrieben.
 _UPDATABLE = {
@@ -112,7 +117,7 @@ class GraphMapper:
         raw = graph.outlook_body_raw
         if raw is None or graph.body.strip() != tanss.body.strip():
             return False
-        return raw.strip() != self._body(tanss).strip()
+        return comparable_presentation(raw) != comparable_presentation(self._body(tanss))
 
     # ------------------------------------------------------------------ schreiben
 

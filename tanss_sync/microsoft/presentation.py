@@ -7,6 +7,7 @@ Termintext oder persönliche Kategorien zu verfälschen.
 
 from __future__ import annotations
 
+import re
 from urllib.parse import urlencode
 
 from ..domain.appointment import Appointment, AppointmentKind, ServiceLocation
@@ -16,6 +17,19 @@ from ..domain.appointment import Appointment, AppointmentKind, ServiceLocation
 _LEGACY_START = "[TANSS-SYNC-INFO]"
 _LEGACY_END = "[/TANSS-SYNC-INFO]"
 _VISIBLE_START = "TANSS-Informationen"
+_AUTOLINK = re.compile(r"\[(https?://[^\]\s]+)\]\(<?(https?://[^\s)>]+)>?\)")
+_ANGLE_URL = re.compile(r"<(https?://[^>\s]+)>")
+
+
+def comparable_presentation(text: str) -> str:
+    """Normalisiert reine Outlook/HTML-zu-Text-Formatierung fuer den Vergleich.
+
+    Markdown-Links werden nur vereinfacht, wenn sichtbare URL und Ziel exakt
+    uebereinstimmen. Ein veraendertes Linkziel bleibt somit erkennbar.
+    """
+    text = _AUTOLINK.sub(lambda m: m.group(1) if m.group(1) == m.group(2) else m.group(0), text)
+    text = _ANGLE_URL.sub(r"\1", text)
+    return "\n".join(line.rstrip() for line in text.strip().splitlines())
 
 
 def without_sync_info(text: str | None) -> str:
