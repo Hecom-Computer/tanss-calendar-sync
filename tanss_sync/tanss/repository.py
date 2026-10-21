@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from .client import TANSS_X_PREFIX, TanssClient
 from .errors import TanssError, TanssNotFound
 from .models import (
+    ABSENCE_PLANNING_TYPES,
     TRIGGER_TYPES,
     SupportPage,
     TanssCompany,
@@ -52,7 +53,8 @@ class TanssRepository:
 
     def list_appointments(self, employee_id: int, start: datetime, end: datetime, *,
                           with_recurring: bool = False,
-                          created_from: datetime | None = None) -> SupportPage:
+                          created_from: datetime | None = None,
+                          absences_only: bool = False) -> SupportPage:
         """Termine eines Mitarbeiters im Zeitfenster.
 
         Drei Zusicherungen, die hier und nicht beim Aufrufer liegen:
@@ -60,9 +62,9 @@ class TanssRepository:
         * Der Filter heißt ``employees`` (Liste). Ein falscher Name wird stillschweigend
           ignoriert und liefert **alle** Mitarbeiter — wir würden in fremde Postfächer
           schreiben.
-        * **Kein** ``planningTypes``-Filter. Sonst verschwindet ein zur Leistung
+        * Im Hauptabruf **kein** ``planningTypes``-Filter. Sonst verschwindet ein zur Leistung
           gewandelter Termin aus der Antwort und sähe aus wie eine Löschung.
-          Aussortiert wird im Client.
+          Nur die zusätzliche Abwesenheitssuche darf gefiltert werden.
         * ``fetchLinkedEmployees`` wird **nie** gesetzt — TANSS liefert dann virtuelle
           Zeilen mit ``id: 0``, die weder gepaart noch geschrieben werden dürfen.
 
@@ -75,6 +77,8 @@ class TanssRepository:
             "employees": [employee_id],
             "fetchMetaInfos": True,
         }
+        if absences_only:
+            body["planningTypes"] = sorted(item.value for item in ABSENCE_PLANNING_TYPES)
         if with_recurring:
             # fetchRecurring expandiert die Occurrences. fetchRecurrenceRules tut das
             # NICHT - es liefert nur die RFC-5545-Regel an den Mastern. Beides wird

@@ -30,7 +30,7 @@ from ..state.records import LinkRecord, RunReport
 from ..state.store import StateStore
 from ..tanss.errors import ChangesDiscardedError
 from ..tanss.mapper import TanssMapper
-from ..tanss.models import TanssPlanningType, TanssSupport
+from ..tanss.models import ABSENCE_PLANNING_TYPES, TanssSupport
 from ..tanss.repository import TanssRepository
 from ..util.html import HtmlText
 from ..util.timezone import TimeConverter
@@ -45,14 +45,7 @@ from .subject import SubjectFormatter
 log = logging.getLogger(__name__)
 
 
-_ABSENCE_PLANNING_TYPES = frozenset({
-    TanssPlanningType.VACATION,
-    TanssPlanningType.ILLNESS,
-    TanssPlanningType.ABSENCE,
-    TanssPlanningType.OVERTIME,
-    TanssPlanningType.STAND_BY,
-    TanssPlanningType.CUSTOM,
-})
+_ABSENCE_PLANNING_TYPES = ABSENCE_PLANNING_TYPES
 
 
 def _include_existing_absences(filtered: list[TanssSupport],
@@ -202,7 +195,7 @@ class SyncEngine:
             # Aktivierungsfilter weiterhin ausgeschlossen.
             absences = self.tanss.list_appointments(
                 user.tanss_employee_id, start, end,
-                with_recurring=self.config.sync.sync_series)
+                with_recurring=self.config.sync.sync_series, absences_only=True)
             page.items = _include_existing_absences(page.items, absences.items)
         if self.config.sync.sync_series and user.adopt_existing_series_ids:
             # Serien-Master können lange vor der Benutzeraktivierung angelegt

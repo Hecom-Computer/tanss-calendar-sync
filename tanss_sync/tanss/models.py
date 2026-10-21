@@ -46,6 +46,13 @@ class TanssPlanningType(StrEnum):
     CUSTOM = "CUSTOM"
 
 
+ABSENCE_PLANNING_TYPES = frozenset({
+    TanssPlanningType.VACATION, TanssPlanningType.ILLNESS,
+    TanssPlanningType.ABSENCE, TanssPlanningType.OVERTIME,
+    TanssPlanningType.STAND_BY, TanssPlanningType.CUSTOM,
+})
+
+
 class TanssRecurrenceExclusion(BaseModel):
     """Ein aus einer TANSS-Serie entfernter einzelner Termin."""
 
